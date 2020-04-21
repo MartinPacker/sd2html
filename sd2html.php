@@ -88,6 +88,7 @@
 // 08/21/19 MGLP Added NUMTCB column in Application Environment table - by parsing parm string
 // 10/15/19 MGLP Detect PlanNameGroup
 // 03/03/20 MGLP Detect NumberCPsTimes100
+// 04/21/20 MGLP Added MIT License text as comment at top
 ?>
 <style type="text/css">
 sl
@@ -382,9 +383,16 @@ $seenSCs=array();
 
 
 echo "<p>Source XML file: $sds</p>\n";
-$dom=new DOMDocument;
-$dom->load($sds);
-$xpath=new DOMXPath($dom);
+
+// Load file and remove newlines
+$file = file_get_contents($sds);
+$cleanedFile = str_replace("\n", "", $file);
+
+// Load the cleaned up XML
+$dom = new DOMDocument;
+$dom->loadXML($cleanedFile);
+
+$xpath = new DOMXPath($dom);
 $rootNamespace = $dom->lookupNamespaceUri($dom->namespaceURI);
 $xpath->registerNamespace('wlm', $rootNamespace); 
 
