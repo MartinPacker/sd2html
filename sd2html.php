@@ -89,6 +89,7 @@
 // 10/15/19 MGLP Detect PlanNameGroup
 // 03/03/20 MGLP Detect NumberCPsTimes100
 // 04/21/20 MGLP Added MIT License text as comment at top
+// 06/18/20 MGLP Decode "NumberCPsTimes100" in override
 ?>
 <style type="text/css">
 sl
@@ -1385,6 +1386,9 @@ foreach($srvPols as $sp){
     case 'PercentageLPARShare':
       $oversType.="Percentage LPAR Share<br/>";
       break;
+    case 'NumberCPsTimes100':
+	  $oversType.="Percentage Of A CP<br/>";
+	  break;
     default:
       $oversType.="$rgOverType<br/>";
       break;
