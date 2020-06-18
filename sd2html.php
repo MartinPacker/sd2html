@@ -90,6 +90,7 @@
 // 03/03/20 MGLP Detect NumberCPsTimes100
 // 04/21/20 MGLP Added MIT License text as comment at top
 // 06/18/20 MGLP Decode "NumberCPsTimes100" in override
+// 06/18/20 MGLP Massage subsystem names in Application Environments table
 ?>
 <style type="text/css">
 sl
@@ -2017,19 +2018,48 @@ foreach($aes as $ae){
     $aeProcAlign='left';
   }
   
-  $DNL=$xpath->query('wlm:StartParameter',$ae);
-  $NUMTCB='&nbsp;';
-  if($DNL->length>0){
-    $aeStartParms=$DNL->item(0)->nodeValue;
-    $NUMTCBpos=strpos($aeStartParms,'NUMTCB=');
-    if($NUMTCBpos!==false){
-      $commaPos=strpos($aeStartParms,',',$NUMTCBpos+7);
-      if($commaPos!==false){
-        $NUMTCB=strval(intval(substr($aeStartParms,$NUMTCBpos+7,$commaPos-$NUMTCBpos-7)));
+  $DNL = $xpath->query('wlm:StartParameter', $ae);
+  $NUMTCB = '&nbsp;';
+  $DB2SSN ='';
+  if($DNL->length > 0){
+    /* Get Application Environment start oarameters */
+    $aeStartParms = $DNL->item(0)->nodeValue;
+    
+    /* Parse NUMTCB - if present */
+    $NUMTCBpos = strpos($aeStartParms, 'NUMTCB=');
+    if($NUMTCBpos !== false){
+      $commaPos = strpos($aeStartParms, ',', $NUMTCBpos+7);
+      if($commaPos !== false){
+        $NUMTCB = strval(intval(substr($aeStartParms, $NUMTCBpos + 7, $commaPos - $NUMTCBpos - 7)));
+      } else {
+        $NUMTCB = strval(intval(substr($aeStartParms, $NUMTCBpos + 7)));
       }
+    }
+    
+    /* Parse DB2SSN - if present */
+    $DB2SSNpos = strpos($aeStartParms, 'DB2SSN=');
+    if($DB2SSNpos !== false){
+      $commaPos = strpos($aeStartParms, ',', $DB2SSNpos+7);
+      if($commaPos !== false){
+        $DB2SSN = substr($aeStartParms, $DB2SSNpos + 7, $commaPos - $DB2SSNpos - 7);
+      } else {
+        $DB2SSN = substr($aeStartParms, $DB2SSNpos + 7);
+      }
+      
+      if($DB2SSN !== "&IWMSSNM"){
+        $aeStartParms = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeStartParms);
+      }
+      
     }
   }else{
     $aeStartParms="";
+  }
+  
+  /* Massage Application Environment - if the Db2 subsystem name is present and in the AE name */
+  /* Also the description */
+  if($DB2SSN !== ""){
+    $aeName = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeName);
+    $aeDesc = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeDesc);
   }
 
   echo "<tr>";
