@@ -91,6 +91,7 @@
 // 04/21/20 MGLP Added MIT License text as comment at top
 // 06/18/20 MGLP Decode "NumberCPsTimes100" in override
 // 06/18/20 MGLP Massage subsystem names in Application Environments table
+// 01/05/21 MGLP Decode SystemNameGroup
 ?>
 <style type="text/css">
 sl
@@ -280,6 +281,10 @@ function do_classification_rules($c,$l){
       $qtypeHTML="System Name";
       $qvalueHTML=$qvalue;    
        break;
+    case "SystemNameGroup":
+      $qtypeHTML="System Name<br/>Group";
+      $qvalueHTML=$qvalue;
+      break;
     case "ProcessName":
       $qtypeHTML="Process Name";
       $qvalueHTML=$qvalue;    
