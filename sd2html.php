@@ -92,6 +92,7 @@
 // 06/18/20 MGLP Decode "NumberCPsTimes100" in override
 // 06/18/20 MGLP Massage subsystem names in Application Environments table
 // 01/05/21 MGLP Decode SystemNameGroup
+// 01/26/21 MGLP Decode CPUServiceUnits for Resource Group Override
 ?>
 <style type="text/css">
 sl
@@ -1391,6 +1392,9 @@ foreach($srvPols as $sp){
     switch ($rgOverType) {
     case 'PercentageLPARShare':
       $oversType.="Percentage LPAR Share<br/>";
+      break;
+    case 'CPUServiceUnits':
+      $oversType.="CPU Service Units<br/>";
       break;
     case 'NumberCPsTimes100':
 	  $oversType.="Percentage Of A CP<br/>";
