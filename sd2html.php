@@ -93,6 +93,7 @@
 // 06/18/20 MGLP Massage subsystem names in Application Environments table
 // 01/05/21 MGLP Decode SystemNameGroup
 // 01/26/21 MGLP Decode CPUServiceUnits for Resource Group Override
+// 01/27/21 MGLP Added ProdId's LEVELnnn word to the Statistics table
 ?>
 <style type="text/css">
 sl
@@ -485,6 +486,7 @@ if($HPs->length){
 
 // Put out level
 $sdLevel=$xpath->query('/wlm:ServiceDefinition/wlm:Level')->item(0)->nodeValue;
+$sdProdId=explode(" ", $xpath->query('/wlm:ServiceDefinition/wlm:ProdId')->item(0)->nodeValue)[7];
 
 echo "<a href='#top'><h2 id='statistics'>Statistics</h2></a>\n";
 
@@ -492,6 +494,9 @@ echo "<table class=scrollable border='1'>\n";
 echo "<tbody>\n";
 echo "<tr>\n";
 echo "<td style='min-width: 200px;max-width: 200px;''>Level</td><td>".$sdLevel."</td>\n";
+echo "</tr>\n";
+echo "<tr>\n";
+echo "<td style='min-width: 200px;max-width: 200px;''>ProdId Level</td><td>".$sdProdId."</td>\n";
 echo "</tr>\n";
 echo "<tr>\n";
 echo "<td>Classification Groups</td><td>".$classification_groups->length."</td>\n";
