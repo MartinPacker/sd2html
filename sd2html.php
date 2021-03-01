@@ -94,6 +94,7 @@
 // 01/05/21 MGLP Decode SystemNameGroup
 // 01/26/21 MGLP Decode CPUServiceUnits for Resource Group Override
 // 01/27/21 MGLP Added ProdId's LEVELnnn word to the Statistics table
+// 03/01/21 MGLP Decode ClientWorkstationName. Support spaces in URL.
 ?>
 <style type="text/css">
 sl
@@ -307,6 +308,10 @@ function do_classification_rules($c,$l){
       $qtypeHTML="Accounting<br/>Information";
       $qvalueHTML=$qvalue;
       break;
+    case "ClientWorkstationName":
+      $qtypeHTML="Client Workstation Name";
+      $qvalueHTML=$qvalue;
+      break;
      default:
       $qtypeHTML=$qtype;
       $qvalueHTML=$qvalue;    
@@ -394,7 +399,7 @@ $seenSCs=array();
 echo "<p>Source XML file: $sds</p>\n";
 
 // Load file and remove newlines
-$file = file_get_contents($sds);
+$file = file_get_contents(str_replace(" ", "%20", $sds));
 $cleanedFile = str_replace("\n", "", $file);
 
 // Load the cleaned up XML
