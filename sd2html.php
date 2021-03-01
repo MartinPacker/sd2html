@@ -95,6 +95,8 @@
 // 01/26/21 MGLP Decode CPUServiceUnits for Resource Group Override
 // 01/27/21 MGLP Added ProdId's LEVELnnn word to the Statistics table
 // 03/01/21 MGLP Decode ClientWorkstationName. Support spaces in URL.
+//               Support RG Include Specialty Processor Consumption.
+//               Also Deactivate Discretionary Goal Management option
 ?>
 <style type="text/css">
 sl
@@ -691,6 +693,7 @@ $SRB=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoeff
 $IOPrio=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityManagement')->item(0)->nodeValue;
 $DynAlias=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DynamicAliasManagement')->item(0)->nodeValue;
 $IOPriorityGroupsEnabled=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityGroupsEnabled')->item(0)->nodeValue;
+$DeactivateDiscretionaryGoalManagement=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DeactivateDiscretionaryGoalManagement')->item(0)->nodeValue;
 
 echo "<tr>\n".cell("CPU").cell($CPU)."</tr>\n";
 echo "<tr>\n".cell("IOC").cell($IOC)."</tr>\n";
@@ -700,6 +703,7 @@ echo "<tr>\n".cell("SRB").cell($SRB)."</tr>\n";
 echo "<tr>\n".cell("I/O Priority").cell($IOPrio)."</tr>\n";
 echo "<tr>\n".cell("Dynamic Alias<br/>Management").cell($DynAlias)."</tr>\n";
 echo "<tr>\n".cell("I/O Priority<br/>Groups Enabled").cell($IOPriorityGroupsEnabled)."</tr>\n";
+echo "<tr>\n".cell("Deactivate Discretionary<br/>Goal Management").cell($DeactivateDiscretionaryGoalManagement)."</tr>\n";
 
 echo "</table>\n";
 
@@ -1093,6 +1097,7 @@ if($resGrps->length){
   echo "<th style='min-width: 100px; max-width: 100px;'>Type</th>\n";
   echo "<th>Maximum</th>\n";
   echo "<th>Minimum</th>\n";
+  echo "<th>Speciality Processor Included</th>\n";
   echo "<th>Created</th>\n";
   echo "<th>User</th>\n";
   echo "<th>Updated</th>\n";
@@ -1189,7 +1194,17 @@ if($resGrps->length){
 	      $rgModificationUserHTML=$rgModificationUser;
     	}
     }
-   $rgUsed=array_search($rgName,$seenRGs);
+    
+    
+    // Pick up Include Specialty Processor Consumption - if present
+    $rgIncSpecProcConsNodes=$xpath->query("wlm:IncludeSpecialtyProcessorConsumption",$rg);
+    if($rgIncSpecProcConsNodes->length>0){
+      $rgIncSpecProc=$rgIncSpecProcConsNodes->item(0)->nodeValue;
+    }else{
+      $rgIncSpecProc="&nbsp;";
+    }
+    
+    $rgUsed=array_search($rgName,$seenRGs);
     if($rgUsed!==false){
       $usedString='';
     }else{
@@ -1215,6 +1230,8 @@ if($resGrps->length){
       $rgCapMin="&nbsp";
     }
     echo cell($rgCapMin,'right')."\n";
+
+    echo cell($rgIncSpecProc,'center')."\n";
   
     echo cell($rgCreationDateHTML)."\n";
   
