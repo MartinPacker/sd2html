@@ -97,6 +97,7 @@
 // 03/01/21 MGLP Decode ClientWorkstationName. Support spaces in URL.
 //               Support RG Include Specialty Processor Consumption.
 //               Also Deactivate Discretionary Goal Management option
+// 04/17/21 MGLP Added buttons to create tree in iThoughts of classification rules
 ?>
 <style type="text/css">
 sl
@@ -163,7 +164,208 @@ td
   font-size:12px;
 }
 
+/* Dialog full screen background */
+#dialog-wrap {
+  display: none;
+  z-index: 9999;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Dialog background */
+#dialog-box {
+  position: relative;
+  background: #fff;
+  min-width: 800px;
+  max-width: 800px;
+  padding: 10px;
+  margin: 40vh auto 0 auto;
+}
+
+/* Dialog Close Button */
+#dialog-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 5px;
+  background: #f54242;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Dialog text box */
+#dialog-text
+{
+  font-size: 10px;
+}
 </style>
+
+<!-- Dialog box -->
+<div id="dialog-wrap">
+  <div id="dialog-box">
+    <div id="dialog-close" onclick="aalert.close()">X</div>
+    <h2 id="dialog-head"></h2>
+    <p>&nbsp;</p>
+    <textarea rows=50 cols=100 id="dialog-text"></textarea>
+  </div>
+</div>
+
+
+<script type="text/javascript">
+
+var aalert = {
+    open : function (title, message){
+        document.getElementById("dialog-head").innerHTML = title
+        document.getElementById("dialog-text").innerHTML = message
+        document.getElementById("dialog-wrap").style.display = "block"
+    },
+    close : function () {
+        document.getElementById("dialog-wrap").style.display = "none"
+    }
+}
+
+function makeTree(subsystemID){
+    // Use the passed in node ID to find the node for this subsystem
+    subsysRow = document.getElementById(subsystemID).parentNode.parentNode.parentNode
+    
+    // Get the table body
+    tbody = subsysRow.parentNode
+    
+    // Find the table rows for this subsystem
+    subsystemTableRows = []
+    foundSubsystem = false
+    for (node of tbody.childNodes){
+        if(node === subsysRow){
+            foundSubsystem = true
+            subsystemTableRows.push(node)
+            continue
+        }
+        if(node.nodeName == "#text") continue
+        
+        if(node.firstChild.childNodes.length == 0) continue
+        
+        if((node.firstChild.firstChild.nodeName == "STRONG") && foundSubsystem){
+            // We've finished picking up table rows
+            break
+        }
+        
+        if(foundSubsystem){
+            subsystemTableRows.push(node)
+        }
+    }
+    
+    // Get subsystem service class and report class
+    scColumn = 0
+    for (i = 1; i < subsysRow.childNodes.length; i++){
+        if(subsysRow.childNodes[i].innerHTML != "&nbsp;"){
+            scColumn = i
+            break
+        }
+    }
+    subsysSC = subsysRow.childNodes[scColumn].firstChild.innerHTML
+    if(subsysSC == undefined){
+        subsysSC = ""
+    }
+    subsysRC = subsysRow.childNodes[scColumn + 1].firstChild.innerHTML
+    if(subsysRC == undefined){
+        subsysRC = ""
+    }
+    
+    CSVLines = ["colour,level,level0,level1,level2,level3,level4,level5,level6,level7,level8"]
+
+    // Level 0 node for the subsystem
+    subsysNode ='"",0,"' + subsystemID.substring(3)
+
+    if (subsysSC !=""){
+        subsysNode += "\nSC: " +subsysSC
+    }
+
+    if (subsysRC !=""){
+        subsysNode += "\nRC: " +subsysRC
+    }
+    
+    subsysNode += '"'
+
+    CSVLines.push(subsysNode)
+    
+    // Add rules other than default for this subsystem
+    for(r = 1; r < subsystemTableRows.length; r++){
+        // Find first non-blank cell
+        for(c = 1; c < subsystemTableRows[r].childNodes.length; c++){
+            cell = subsystemTableRows[r].childNodes[c].innerHTML
+            if(cell != "&nbsp;"){
+                column = c
+                break
+            }
+        }
+        
+        level = (column + 2) / 3
+        
+        // Create cell with rule number and rule type
+        cell = r.toString() + "\n" + cell.replaceAll("<br>"," ")
+        
+        // Add rule value to cell
+        ih = subsystemTableRows[r].childNodes[column + 1].innerHTML
+        almostStart = ih.lastIndexOf('">')
+        if(almostStart == -1){
+            ruleValue = ih
+        }else{
+            justAfterEnd = ih.lastIndexOf("</a")
+            ruleValue = ih.substring(almostStart + 2, justAfterEnd)
+        
+        }
+        cell += "\n" +  ruleValue
+        
+        
+        // Add any description to the cell
+        description = subsystemTableRows[r].childNodes[column+2].innerHTML
+        if(description != "&nbsp"){
+            cell += "\n" +  description.replace("<br>"," ")
+        }
+        
+        // Add service class to cell
+        sclass = subsystemTableRows[r].childNodes[scColumn].firstChild.innerHTML
+        if(sclass ==undefined){
+            sclass = ""
+        }
+        cell += "\n\nSC: " +  sclass.replace("<br>"," ")
+        
+        // Add report class to cell
+        rclass = subsystemTableRows[r].childNodes[scColumn + 1].firstChild.innerHTML
+        if(rclass ==undefined){
+            rclass = ""
+        }
+        cell += "\nRC: " + rclass.replace("<br>"," ")
+        
+        // Perhaps add Storage Critical to cell
+        storcrit = subsystemTableRows[r].childNodes[scColumn + 2].innerHTML
+        if(storcrit != "No"){
+            cell += "\nStorage Critical"
+        }
+        
+        // Perhaps add Reporting Attribute to cell
+        reptattr = subsystemTableRows[r].childNodes[scColumn + 3].firstChild.innerHTML
+        if(reptattr != undefined){
+            cell += "\n" + reptattr
+        }
+        
+        CSVLines.push('"",' + level.toString() + ',""'.repeat(level) + ',"' + cell +'"')
+    }
+    
+    
+    CSV=""
+    for(l = 0; l < CSVLines.length; l++){
+        CSV += CSVLines[l] + '\n'
+    }
+
+    aalert.open("Select All, Copy & Paste into a CSV file",CSV)
+}
+
+</script>
 
 <?php
 
@@ -929,7 +1131,7 @@ if($maxClassificationRuleLevel==1){
 }
 
 // Put out quick links to subsystems in following table
-echo("<p><strong>Subsystems:</strong>\n");
+echo("<p><strong>Go to subsystem:</strong>\n");
 
 foreach($classifications as $c){
   // Pick up subsystem name
@@ -937,6 +1139,15 @@ foreach($classifications as $c){
   echo (href("SS",$subsys)."\n");
 }
 
+// Put out subsystem tree buttons for following table
+echo("<p><strong>Subsystem tree:&nbsp;&nbsp;</strong>\n");
+
+foreach($classifications as $c){
+  // Pick up subsystem name
+  $subsys=$xpath->query("wlm:SubsystemType",$c)->item(0)->nodeValue;
+  //echo (href("SS",$subsys)."\n");
+  echo ("<a href='javascript:makeTree(\"SS_". $subsys ."\")'>".$subsys."</a>\n");
+}
 echo("</p>\n");
 
 echo "<table class=scrollable border='1'>\n";
