@@ -98,6 +98,7 @@
 //               Support RG Include Specialty Processor Consumption.
 //               Also Deactivate Discretionary Goal Management option
 // 04/17/21 MGLP Added buttons to create tree in iThoughts of classification rules
+// 04/19/21 MGLP Fixed problem in iThoughts CSV with Mobile
 ?>
 <style type="text/css">
 sl
@@ -309,14 +310,13 @@ function makeTree(subsystemID){
         cell = r.toString() + "\n" + cell.replaceAll("<br>"," ")
         
         // Add rule value to cell
-        ih = subsystemTableRows[r].childNodes[column + 1].innerHTML
+        ih = subsystemTableRows[r].childNodes[column + 1].innerHTML.replace("<br>"," ").replace("<br/>"," ")
         almostStart = ih.lastIndexOf('">')
         if(almostStart == -1){
             ruleValue = ih
         }else{
             justAfterEnd = ih.lastIndexOf("</a")
-            ruleValue = ih.substring(almostStart + 2, justAfterEnd)
-        
+            ruleValue = ih.substring(almostStart + 2, justAfterEnd)        
         }
         cell += "\n" +  ruleValue
         
@@ -324,7 +324,7 @@ function makeTree(subsystemID){
         // Add any description to the cell
         description = subsystemTableRows[r].childNodes[column+2].innerHTML
         if(description != "&nbsp"){
-            cell += "\n" +  description.replace("<br>"," ")
+            cell += "\n" +  description.replace("<br>"," ").replace("<br/>"," ")
         }
         
         // Add service class to cell
@@ -332,14 +332,14 @@ function makeTree(subsystemID){
         if(sclass ==undefined){
             sclass = ""
         }
-        cell += "\n\nSC: " +  sclass.replace("<br>"," ")
+        cell += "\n\nSC: " +  sclass.replace("<br>"," ").replace("<br/>"," ")
         
         // Add report class to cell
         rclass = subsystemTableRows[r].childNodes[scColumn + 1].firstChild.innerHTML
         if(rclass ==undefined){
             rclass = ""
         }
-        cell += "\nRC: " + rclass.replace("<br>"," ")
+        cell += "\nRC: " + rclass.replace("<br>"," ").replace("<br/>"," ")
         
         // Perhaps add Storage Critical to cell
         storcrit = subsystemTableRows[r].childNodes[scColumn + 2].innerHTML
@@ -348,7 +348,7 @@ function makeTree(subsystemID){
         }
         
         // Perhaps add Reporting Attribute to cell
-        reptattr = subsystemTableRows[r].childNodes[scColumn + 3].firstChild.innerHTML
+        reptattr = subsystemTableRows[r].childNodes[scColumn + 4].innerHTML
         if(reptattr != undefined){
             cell += "\n" + reptattr
         }
