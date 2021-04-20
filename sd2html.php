@@ -99,6 +99,7 @@
 //               Also Deactivate Discretionary Goal Management option
 // 04/17/21 MGLP Added buttons to create tree in iThoughts of classification rules
 // 04/19/21 MGLP Fixed problem in iThoughts CSV with Mobile
+// 04/20/21 MGLP Reading in the XML cleans up \r and 0x1A characters
 ?>
 <style type="text/css">
 sl
@@ -604,7 +605,7 @@ echo "<p>Source XML file: $sds</p>\n";
 
 // Load file and remove newlines
 $file = file_get_contents(str_replace(" ", "%20", $sds));
-$cleanedFile = str_replace("\n", "", $file);
+$cleanedFile = str_replace(["\n","\r",chr(0x1a)], ["", "", ""], $file);
 
 // Load the cleaned up XML
 $dom = new DOMDocument;
