@@ -100,6 +100,10 @@
 // 04/17/21 MGLP Added buttons to create tree in iThoughts of classification rules
 // 04/19/21 MGLP Fixed problem in iThoughts CSV with Mobile
 // 04/20/21 MGLP Reading in the XML cleans up \r and 0x1A characters
+// 04/21/21 MGLP Support SysplexNameGroup in CRs and SysplexName in CGs
+//               Recast getting Creation- and Modification User values
+
+
 ?>
 <style type="text/css">
 sl
@@ -209,7 +213,7 @@ td
 <!-- Dialog box -->
 <div id="dialog-wrap">
   <div id="dialog-box">
-    <div id="dialog-close" onclick="aalert.close()">X</div>
+    <div id="dialog-close" onclick="myAlert.close()">X</div>
     <h2 id="dialog-head"></h2>
     <p>&nbsp;</p>
     <textarea rows=50 cols=100 id="dialog-text"></textarea>
@@ -219,7 +223,7 @@ td
 
 <script type="text/javascript">
 
-var aalert = {
+var myAlert = {
     open : function (title, message){
         document.getElementById("dialog-head").innerHTML = title
         document.getElementById("dialog-text").innerHTML = message
@@ -363,7 +367,7 @@ function makeTree(subsystemID){
         CSV += CSVLines[l] + '\n'
     }
 
-    aalert.open("Select All, Copy & Paste into a CSV file",CSV)
+    myAlert.open("Select All, Copy & Paste into a CSV file",CSV)
 }
 
 </script>
@@ -427,6 +431,10 @@ function do_classification_rules($c,$l){
       break;
     case "SysplexName":
       $qtypeHTML="Sysplex<br/>Name";
+      $qvalueHTML=$qvalue;
+      break;
+    case "SysplexNameGroup":
+      $qtypeHTML="Sysplex<br/>Name<br/>Group";
       $qvalueHTML=$qvalue;
       break;
     case "PackageNameGroup":
@@ -803,7 +811,8 @@ foreach ($creationDates as $cd) {
   $creationYear=substr($cd->nodeValue,0,4);
   if($creationYear!="1900"){
     $creationYears[$creationYear]++;
-    $creationUser=$cd->nextSibling->nextSibling->nodeValue;
+    $creationUser = $xpath->query('wlm:CreationUser',$cd->parentNode)[0]->nodeValue;
+
     if(strpos($creationUser,"/")!==false){
       // Picked up date as no creation user
       $creationUser="Unknown";
@@ -851,7 +860,7 @@ foreach ($modificationDates as $md) {
   $modificationYear=substr($md->nodeValue,0,4);
   if($modificationYear!="1900"){
     $modificationYears[$modificationYear]++;
-    $modificationUser=$md->nextSibling->nextSibling->nodeValue;
+    $modificationUser = $xpath->query('wlm:ModificationUser',$md->parentNode)[0]->nodeValue;
     if($modificationYears[$modificationYear]==1){
       $modificationYearNames[$modificationYear]=array();
     }
@@ -952,6 +961,9 @@ foreach($classification_groups as $cg){
     break;
   case "TransactionName":
     $cgQualifierTypeHTML="Transaction Name";
+    break;
+  case "SysplexName":
+    $cgQualifierTypeHTML="Sysplex Name";
     break;
   case "PlanName":
     $cgQualifierTypeHTML="Plan Name";
