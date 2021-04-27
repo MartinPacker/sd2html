@@ -102,6 +102,8 @@
 // 04/20/21 MGLP Reading in the XML cleans up \r and 0x1A characters
 // 04/21/21 MGLP Support SysplexNameGroup in CRs and SysplexName in CGs
 //               Recast getting Creation- and Modification User values
+// 04/22/21 MGLP Added "Rule " before rule number
+//               Added Service Class Period count
 
 
 ?>
@@ -284,7 +286,7 @@ function makeTree(subsystemID){
     CSVLines = ["colour,level,level0,level1,level2,level3,level4,level5,level6,level7,level8"]
 
     // Level 0 node for the subsystem
-    subsysNode ='"",0,"' + subsystemID.substring(3)
+    subsysNode ='"",0,"Subsystem ' + subsystemID.substring(3)
 
     if (subsysSC !=""){
         subsysNode += "\nSC: " +subsysSC
@@ -312,7 +314,7 @@ function makeTree(subsystemID){
         level = (column + 2) / 3
         
         // Create cell with rule number and rule type
-        cell = r.toString() + "\n" + cell.replaceAll("<br>"," ")
+        cell = "Rule " + r.toString() + "\n" + cell.replaceAll("<br>"," ")
         
         // Add rule value to cell
         ih = subsystemTableRows[r].childNodes[column + 1].innerHTML.replace("<br>"," ").replace("<br/>"," ")
@@ -662,6 +664,14 @@ $classificationNameNodes=$xpath->query('//wlm:ClassificationRule/wlm:QualifierVa
 $srvPols=$xpath->query('/wlm:ServiceDefinition/wlm:ServicePolicies/wlm:ServicePolicy');
 
 $workloads=$xpath->query('/wlm:ServiceDefinition/wlm:Workloads/wlm:Workload');
+$workloadp=$xpath->query('/wlm:ServiceDefinition/wlm:Workloads')[0];
+
+$velocityNodes=$xpath->query('//wlm:Velocity',$workloadp);
+$percentileNodes=$xpath->query('//wlm:Percentile',$workloadp);
+$averageNodes=$xpath->query('//wlm:Average',$workloadp);
+$discretionaryNodes=$xpath->query('//wlm:Discretionary',$workloadp);
+
+$scPeriodCount = $velocityNodes->length + $averageNodes->length + $discretionaryNodes->length + $percentileNodes->length;
 
 $rcs=$xpath->query('/wlm:ServiceDefinition/wlm:ReportClasses/wlm:ReportClass');
 
@@ -709,38 +719,55 @@ $sdProdId=explode(" ", $xpath->query('/wlm:ServiceDefinition/wlm:ProdId')->item(
 echo "<a href='#top'><h2 id='statistics'>Statistics</h2></a>\n";
 
 echo "<table class=scrollable border='1'>\n";
+
 echo "<tbody>\n";
+
 echo "<tr>\n";
 echo "<td style='min-width: 200px;max-width: 200px;''>Level</td><td>".$sdLevel."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td style='min-width: 200px;max-width: 200px;''>ProdId Level</td><td>".$sdProdId."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Classification Groups</td><td>".$classification_groups->length."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Classification Rules</td><td>".$classificationNameNodes->length."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Resource Groups</td><td>".$resGrps->length."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Service Policies</td><td>".$srvPols->length."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Workloads</td><td>".$workloads->length."</td>\n";
 $serviceClassCount=$xpath->query('//wlm:ServiceClass')->length;
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Service Classes</td><td>".$serviceClassCount."</td>\n";
 echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Service Class Periods</td><td>".$scPeriodCount."</td>\n";
+echo "</tr>\n";
+
+
 echo "<tr>\n";
 echo "<td>Report Classes</td><td>".$rcs->length."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Application Environments</td><td>".$aes->length."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Resources</td><td>".$resourceNodes->length."</td>\n";
 echo "</tr>\n";
