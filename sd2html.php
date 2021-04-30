@@ -104,6 +104,7 @@
 //               Recast getting Creation- and Modification User values
 // 04/22/21 MGLP Added "Rule " before rule number
 //               Added Service Class Period count
+// 04/30/21 MGLP Added sysplex names in rules to Statistics table
 
 
 ?>
@@ -712,6 +713,16 @@ if($HPs->length){
   }
 }
 
+// Work out what sysplexes are explicitly named
+$sysplexes = [];
+$sysplexElements = $xpath->query('//wlm:QualifierType [text()="SysplexName"]');
+foreach($sysplexElements as $se){
+    $sysplexName = trim($se->nextSibling->nextSibling->nodeValue);
+    if(array_search($sysplexName, $sysplexes) === false){
+        array_push($sysplexes, $sysplexName);
+    }
+}
+
 // Put out level
 $sdLevel=$xpath->query('/wlm:ServiceDefinition/wlm:Level')->item(0)->nodeValue;
 $sdProdId=explode(" ", $xpath->query('/wlm:ServiceDefinition/wlm:ProdId')->item(0)->nodeValue)[7];
@@ -771,10 +782,25 @@ echo "</tr>\n";
 echo "<tr>\n";
 echo "<td>Resources</td><td>".$resourceNodes->length."</td>\n";
 echo "</tr>\n";
+
 echo "<tr>\n";
 echo "<td>Scheduling Environments</td><td>".$ses->length."</td>\n";
 echo "</tr>\n";
+
+// If sysplexes named in the rules then list them
+if(count($sysplexes) > 0){
+    $sysplexNames="";
+    foreach($sysplexes as $sn){
+        $sysplexNames = $sysplexNames . $sn . " ";
+    }
+
+    echo "<tr>\n";
+    echo "<td>Sysplex Names</td><td>" . $sysplexNames . "</td>\n";
+    echo "</tr>\n";
+}
+
 echo "</tbody>\n";
+
 echo "</table>\n";
 
 // Put out notes - if any
