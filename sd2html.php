@@ -105,6 +105,10 @@
 // 04/22/21 MGLP Added "Rule " before rule number
 //               Added Service Class Period count
 // 04/30/21 MGLP Added sysplex names in rules to Statistics table
+// 05/25/21 MGLP Handle System Name qualifier in Classification Groups
+//               Added system names in rules to Statistics table
+//               Added subsystem names in rules to Statistics table
+//               Added performance groups in rules to Statistics table
 
 
 ?>
@@ -528,6 +532,10 @@ function do_classification_rules($c,$l){
       $qtypeHTML="Client Workstation Name";
       $qvalueHTML=$qvalue;
       break;
+    case "Perform":
+      $qtypeHTML="Performance Group";
+      $qvalueHTML=$qvalue;
+      break;
      default:
       $qtypeHTML=$qtype;
       $qvalueHTML=$qvalue;    
@@ -723,6 +731,39 @@ foreach($sysplexElements as $se){
     }
 }
 
+// Work out what systems are explicitly named
+$systems = [];
+$systemElements = $xpath->query('//wlm:QualifierType [text()="SystemName"]');
+foreach($systemElements as $se){
+    $sns = $xpath->query('wlm:QualifierNames/wlm:QualifierName/wlm:Name',$se->parentNode);
+    foreach($sns as $sn){
+        $systemName = trim($sn->nodeValue);
+        if(array_search($systemName, $systems) === false){
+            array_push($systems, $systemName);
+        }
+    }
+}
+
+// Work out what subsystems are explicitly named
+$subsystems = [];
+$subsystemElements = $xpath->query('//wlm:QualifierType [text()="SubsystemInstance"]');
+foreach($subsystemElements as $se){
+    $subsystemName = trim($se->nextSibling->nextSibling->nodeValue);
+    if(array_search($subsystemName, $subsystems) === false){
+        array_push($subsystems, $subsystemName);
+    }
+}
+
+// Work out what performance groups are explicitly named
+$performanceGroups = [];
+$performanceGroupElements = $xpath->query('//wlm:QualifierType [text()="Perform"]');
+foreach($performanceGroupElements as $pge){
+    $performanceGroup = trim($pge->nextSibling->nextSibling->nodeValue);
+    if(array_search($performanceGroup, $performanceGroups) === false){
+        array_push($performanceGroups, $performanceGroup);
+    }
+}
+
 // Put out level
 $sdLevel=$xpath->query('/wlm:ServiceDefinition/wlm:Level')->item(0)->nodeValue;
 $sdProdId=explode(" ", $xpath->query('/wlm:ServiceDefinition/wlm:ProdId')->item(0)->nodeValue)[7];
@@ -796,6 +837,42 @@ if(count($sysplexes) > 0){
 
     echo "<tr>\n";
     echo "<td>Sysplex Names</td><td>" . $sysplexNames . "</td>\n";
+    echo "</tr>\n";
+}
+
+// If systems named in the rules then list them
+if(count($systems) > 0){
+    $systemNames="";
+    foreach($systems as $sn){
+        $systemNames = $systemNames . $sn . " ";
+    }
+
+    echo "<tr>\n";
+    echo "<td>System Names</td><td>" . $systemNames . "</td>\n";
+    echo "</tr>\n";
+}
+
+// If subsystems named in the rules then list them
+if(count($subsystems) > 0){
+    $subsystemNames="";
+    foreach($subsystems as $sn){
+        $subsystemNames = $subsystemNames . $sn . " ";
+    }
+
+    echo "<tr>\n";
+    echo "<td>Subsystem Names</td><td>" . $subsystemNames . "</td>\n";
+    echo "</tr>\n";
+}
+
+// If performance groups named in the rules then list them
+if(count($performanceGroups) > 0){
+    $performanceGroupNames="";
+    foreach($performanceGroups as $pgn){
+        $performanceGroupNames = $performanceGroupNames . $pgn . " ";
+    }
+
+    echo "<tr>\n";
+    echo "<td>Performance Groups</td><td>" . $performanceGroupNames . "</td>\n";
     echo "</tr>\n";
 }
 
@@ -1018,6 +1095,9 @@ foreach($classification_groups as $cg){
   case "SysplexName":
     $cgQualifierTypeHTML="Sysplex Name";
     break;
+  case "SystemName":
+    $cgQualifierTypeHTML="System Name";
+    break;
   case "PlanName":
     $cgQualifierTypeHTML="Plan Name";
     break;
@@ -1032,6 +1112,9 @@ foreach($classification_groups as $cg){
     break;
   case "LUName":
     $cgQualifierTypeHTML="LU Name";
+    break;
+  case "Perform":
+    $cgQualifierTypeHTML="Performance Group";
     break;
   default:
     $cgQualifierTypeHTML=$cgQualifierType;  
