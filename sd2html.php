@@ -109,8 +109,15 @@
 //               Added system names in rules to Statistics table
 //               Added subsystem names in rules to Statistics table
 //               Added performance groups in rules to Statistics table
+// 09/09/21 MGLP Coloured userids in Creation / Modification Date tables
 
+$backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
+$lBackgroundColours = count($backgroundColourPalette);
 
+$foregroundColourPalette = ['#0000C0','#00C000','#00C0C0','#C00000', '#C000C0', '#C0C000',
+                            '#0000FF','#00FF00','#00FFFF','#FF0000', '#FF00FF', '#FFFF00',
+                            '#000080','#008000','#008080','#800000', '#800080', '#808000'];
+$lForegroundColours = count($foregroundColourPalette);
 ?>
 <style type="text/css">
 sl
@@ -927,8 +934,9 @@ foreach ($resourceNodes as $RN){
 }
 $classificationNames=array_unique($classificationNames);
 
+$uniqueUserids = [];
 
-// List creation dates
+// List creation dates - Part 1
 $creationDates=$xpath->query('//wlm:CreationDate');
 $creationYears=array(
   "1990"=>0,"1991"=>0,"1992"=>0,"1993"=>0,"1994"=>0,"1995"=>0,"1996"=>0,"1997"=>0,"1998"=>0,"1999"=>0,
@@ -946,7 +954,13 @@ foreach ($creationDates as $cd) {
     if(strpos($creationUser,"/")!==false){
       // Picked up date as no creation user
       $creationUser="Unknown";
+    }else{
+      if (!in_array($creationUser, $uniqueUserids))
+      {
+        $uniqueUserids[] = $creationUser; 
+      }
     }
+    
     if($creationYears[$creationYear]==1){
       $creationYearNames[$creationYear]=array();
     }
@@ -954,6 +968,33 @@ foreach ($creationDates as $cd) {
   }
 }
 
+// List modification dates - Part 1
+$modificationDates=$xpath->query('//wlm:ModificationDate');
+$modificationYears=array(
+  "1990"=>0,"1991"=>0,"1992"=>0,"1993"=>0,"1994"=>0,"1995"=>0,"1996"=>0,"1997"=>0,"1998"=>0,"1999"=>0,
+  "2000"=>0,"2001"=>0,"2002"=>0,"2003"=>0,"2004"=>0,"2005"=>0,"2006"=>0,"2007"=>0,"2008"=>0,"2009"=>0,
+  "2010"=>0,"2011"=>0,"2012"=>0,"2013"=>0,"2014"=>0,"2015"=>0,"2016"=>0,"2017"=>0,"2018"=>0,"2019"=>0,
+  "2020"=>0,"2021"=>0,"2022"=>0,"2023"=>0,"2024"=>0,"2025"=>0,"2026"=>0,"2027"=>0,"2028"=>0,"2029"=>0,
+);
+foreach ($modificationDates as $md) {
+  $modificationYear=substr($md->nodeValue,0,4);
+  if($modificationYear!="1900"){
+    $modificationYears[$modificationYear]++;
+    $modificationUser = $xpath->query('wlm:ModificationUser',$md->parentNode)[0]->nodeValue;
+
+    if (!in_array($modificationUser, $uniqueUserids))
+    {
+      $uniqueUserids[] = $modificationUser; 
+    }
+
+    if($modificationYears[$modificationYear]==1){
+      $modificationYearNames[$modificationYear]=array();
+    }
+    array_push($modificationYearNames[$modificationYear],strtoupper($modificationUser));
+  }
+}
+
+// List creation dates - Part 2
 echo "<a href='#top'><h2 id='creationDates'>Creation Dates By Year</h2></a>\n";
 
 echo "<table border='1'>\n";
@@ -971,32 +1012,29 @@ foreach($creationYears as $cy=>$creationCount){
     
     $names=array_unique($creationYearNames[$cy]);
     asort($names);
-    echo cell(implode(" ",$names));
+    
+    // Colour each name
+    $colouredNames="";
+    foreach($names as $name){
+      $colourIndex = array_search($name, $uniqueUserids);
+      if($colourIndex >= $lForegroundColours){
+        $colour = "#000000";
+      }else{
+        $colour = $foregroundColourPalette[$colourIndex];
+      }
+      $colouredName = "<span style='color: " . $colour . ";'>" . $name . "</span>";
+      $colouredNames .= $colouredName . " ";
+    }
+    
+    echo cell($colouredNames);
+    
     echo "</tr>\n";
   }
 }
 
-echo "</table>\n";
+// List modification dates - Part 2
 
-// List modification dates
-$modificationDates=$xpath->query('//wlm:ModificationDate');
-$modificationYears=array(
-  "1990"=>0,"1991"=>0,"1992"=>0,"1993"=>0,"1994"=>0,"1995"=>0,"1996"=>0,"1997"=>0,"1998"=>0,"1999"=>0,
-  "2000"=>0,"2001"=>0,"2002"=>0,"2003"=>0,"2004"=>0,"2005"=>0,"2006"=>0,"2007"=>0,"2008"=>0,"2009"=>0,
-  "2010"=>0,"2011"=>0,"2012"=>0,"2013"=>0,"2014"=>0,"2015"=>0,"2016"=>0,"2017"=>0,"2018"=>0,"2019"=>0,
-  "2020"=>0,"2021"=>0,"2022"=>0,"2023"=>0,"2024"=>0,"2025"=>0,"2026"=>0,"2027"=>0,"2028"=>0,"2029"=>0,
-);
-foreach ($modificationDates as $md) {
-  $modificationYear=substr($md->nodeValue,0,4);
-  if($modificationYear!="1900"){
-    $modificationYears[$modificationYear]++;
-    $modificationUser = $xpath->query('wlm:ModificationUser',$md->parentNode)[0]->nodeValue;
-    if($modificationYears[$modificationYear]==1){
-      $modificationYearNames[$modificationYear]=array();
-    }
-    array_push($modificationYearNames[$modificationYear],strtoupper($modificationUser));
-  }
-}
+echo "</table>\n";
 
 echo "<a href='#top'><h2 id='modificationDates'>Modification Dates By Year</h2></a>\n";
 
@@ -1012,7 +1050,22 @@ foreach($modificationYears as $my=>$modificationCount){
     echo cell($modificationCount,"right")."\n";
     $names=array_unique($modificationYearNames[$my]);
     asort($names);
-    echo cell(implode(" ",$names));
+
+    // Colour each name
+    $colouredNames="";
+    foreach($names as $name){
+      $colourIndex = array_search($name, $uniqueUserids);
+      if($colourIndex >= $lForegroundColours){
+        $colour = "#000000";
+      }else{
+        $colour = $foregroundColourPalette[$colourIndex];
+      }
+      $colouredName = "<span style='color: " . $colour . ";'>" . $name . "</span>";
+      $colouredNames .= $colouredName . " ";
+    }
+    
+    echo cell($colouredNames);
+
     echo "</tr>\n";
    }
 }
