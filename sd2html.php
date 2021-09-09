@@ -110,6 +110,7 @@
 //               Added subsystem names in rules to Statistics table
 //               Added performance groups in rules to Statistics table
 // 09/09/21 MGLP Coloured userids in Creation / Modification Date tables
+//          MGLP Handle AccountingInformationGroup in Classification Rules
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -533,6 +534,10 @@ function do_classification_rules($c,$l){
       break;
     case "AccountingInformation":
       $qtypeHTML="Accounting<br/>Information";
+      $qvalueHTML=$qvalue;
+      break;
+    case "AccountingInformationGroup":
+      $qtypeHTML="Accounting<br/>Information<br/>Group";
       $qvalueHTML=$qvalue;
       break;
     case "ClientWorkstationName":
@@ -1168,6 +1173,9 @@ foreach($classification_groups as $cg){
     break;
   case "Perform":
     $cgQualifierTypeHTML="Performance Group";
+    break;
+  case "AccountingInformation":
+    $cgQualifierTypeHTML="Accounting Information";
     break;
   default:
     $cgQualifierTypeHTML=$cgQualifierType;  
