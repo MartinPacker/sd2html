@@ -111,6 +111,7 @@
 //               Added performance groups in rules to Statistics table
 // 09/09/21 MGLP Coloured userids in Creation / Modification Date tables
 //          MGLP Handle AccountingInformationGroup in Classification Rules
+// 10/27/21 MGLP PHP 8 fixes
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -553,7 +554,13 @@ function do_classification_rules($c,$l){
       $qvalueHTML=$qvalue;    
     }
 
-    $qstart=$xpath->query("wlm:Start",$cr)->item(0)->nodeValue;
+    $node = $xpath->query("wlm:Start",$cr)->item(0);
+    if($node != null){
+      $qstart = $node->nodeValue;
+    }else{
+      $qstart = "";
+    }
+    
     if($qstart!=""){
       $qvalueHTML=$qvalueHTML."<br/>@ ".$qstart;
     }
@@ -778,7 +785,12 @@ foreach($performanceGroupElements as $pge){
 
 // Put out level
 $sdLevel=$xpath->query('/wlm:ServiceDefinition/wlm:Level')->item(0)->nodeValue;
-$sdProdId=explode(" ", $xpath->query('/wlm:ServiceDefinition/wlm:ProdId')->item(0)->nodeValue)[7];
+$sdProdId1=explode(" ", $xpath->query('/wlm:ServiceDefinition/wlm:ProdId')->item(0)->nodeValue);
+if(count($sdProdId1) > 7){
+  $sdProdId = $sdProdId1[7];
+}else{
+  $sdProdId = "";
+}
 
 echo "<a href='#top'><h2 id='statistics'>Statistics</h2></a>\n";
 
@@ -1093,7 +1105,12 @@ $SRB=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoeff
 $IOPrio=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityManagement')->item(0)->nodeValue;
 $DynAlias=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DynamicAliasManagement')->item(0)->nodeValue;
 $IOPriorityGroupsEnabled=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityGroupsEnabled')->item(0)->nodeValue;
-$DeactivateDiscretionaryGoalManagement=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DeactivateDiscretionaryGoalManagement')->item(0)->nodeValue;
+$node = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DeactivateDiscretionaryGoalManagement')->item(0);
+if($node != null){
+  $DeactivateDiscretionaryGoalManagement= $node->nodeValue;
+}else{
+  $DeactivateDiscretionaryGoalManagement="";
+}
 
 echo "<tr>\n".cell("CPU").cell($CPU)."</tr>\n";
 echo "<tr>\n".cell("IOC").cell($IOC)."</tr>\n";
@@ -1140,8 +1157,13 @@ echo "<tbody>\n";
 foreach($classification_groups as $cg){
   $cgName=$xpath->query("wlm:Name",$cg)->item(0)->nodeValue;
   
-  $cgDesc=$xpath->query("wlm:Description",$cg)->item(0)->nodeValue;
-    
+  $node = $xpath->query("wlm:Description",$cg)->item(0);
+  if($node != null){
+    $cgDesc = $node->nodeValue;
+  }else{
+    $cgDesc = "";
+  }
+  
   $cgQualifierType=$xpath->query("wlm:QualifierType",$cg)->item(0)->nodeValue;
   switch($cgQualifierType){
   case "SubsystemInstance":
@@ -1182,7 +1204,13 @@ foreach($classification_groups as $cg){
   }
 
   // Pick up any start offset
-  $cgQualifierStart=$xpath->query("wlm:Start",$cg)->item(0)->nodeValue;
+  $node = $xpath->query("wlm:Start",$cg)->item(0);
+  if($node != null){
+    $cgQualifierStart = $node->nodeValue;
+  }else{
+    $cgQualifierStart = "";
+  }
+
   if($cgQualifierStart!=""){
     $cgName=$cgName." @".$cgQualifierStart;
   }
@@ -1730,7 +1758,12 @@ foreach($srvPols as $sp){
     $oversName.=str_repeat("&nbsp;<br/>",$scGoals->length);
     foreach($scGoals as $goal){
       // Importance
-      $scImportance=$xpath->query('wlm:Importance',$goal)->item(0)->nodeValue;
+      $node = $xpath->query('wlm:Importance',$goal)->item(0);
+      if($node != null){
+        $scImportance = $node->nodeValue;
+      }else{
+        $scImportance = "";
+      }
       
       $scImportances.="$scImportance<br/>";
 
@@ -1852,10 +1885,23 @@ foreach($srvPols as $sp){
       break;
     }
 
-    $rgOverCapMin=$xpath->query("wlm:CapacityMinimum",$rgOver)->item(0)->nodeValue;
+    $node = $xpath->query("wlm:CapacityMinimum",$rgOver)->item(0);
+    if($node != null){
+      $rgOverCapMin = $node->nodeValue;
+    }else{
+      $rgOverCapMin= "";
+    }
+    
     $oversMin.="$rgOverCapMin<br/>";
 
-    $rgOverCapMax=$xpath->query("wlm:CapacityMaximum",$rgOver)->item(0)->nodeValue;
+    $node = $xpath->query("wlm:CapacityMaximum",$rgOver)->item(0);
+    if($node != null){
+      $rgOverCapMax = $node->nodeValue;
+    }else{
+      $rgOverCapMax= "";
+    }
+    
+
     $oversMax.="$rgOverCapMax<br/>";
   }
 
@@ -2550,7 +2596,12 @@ if($rs->length){
   foreach($rs as $r){
     $rName=$xpath->query('wlm:Name',$r)->item(0)->nodeValue;
 
-    $rDesc=$xpath->query('wlm:Description',$r)->item(0)->nodeValue;
+    $node = $xpath->query('wlm:Description',$r)->item(0);
+    if($node != null){
+      $rDesc = $node->nodeValue;
+    }else{
+      $rDesc = "";
+    }
     
     $resUsed=array_search($rName,$resources);
     if($resUsed!==false){
