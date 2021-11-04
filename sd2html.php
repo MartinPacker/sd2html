@@ -112,6 +112,7 @@
 // 09/09/21 MGLP Coloured userids in Creation / Modification Date tables
 //          MGLP Handle AccountingInformationGroup in Classification Rules
 // 10/27/21 MGLP PHP 8 fixes
+// 11/04/21 MGLP More PHP 8 fixes
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -596,7 +597,13 @@ function do_classification_rules($c,$l){
     $regionGoal=$xpath->query("wlm:RegionGoal",$cr)->item(0)->nodeValue;
     if($regionGoal=="") $regionGoal="&nbsp";
     
-    $reportingAttribute=$xpath->query("wlm:ReportingAttribute",$cr)->item(0)->nodeValue;
+    $node = $xpath->query("wlm:ReportingAttribute",$cr)->item(0);
+    if($node != null){
+      $reportingAttribute = $node->nodeValue;
+    }else{
+      $reportingAttribute = "";
+    }
+    
     if(($reportingAttribute=="") || ($reportingAttribute=="None")) $reportingAttribute="&nbsp";
 
     echo blank_cells(3*($l-1)+1);
@@ -908,7 +915,7 @@ echo "</table>\n";
 echo "<a href='#top'><h2 id='notes'>Notes</h2></a>\n";
 
 $sdNotes=$xpath->query('/wlm:ServiceDefinition/wlm:Notes/wlm:Note');
-if($sdNotes->length>0){
+if($sdNotes->length > 0){
   // Have notes
   $noteHTML="<pre>";
   foreach($sdNotes as $note){
@@ -1098,13 +1105,19 @@ echo "<th>Parameter</th>\n";
 echo "<th>Value</th>\n";
 echo "</tr>\n";
 
-$CPU=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:CPU')->item(0)->nodeValue;
-$IOC=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:IOC')->item(0)->nodeValue;
-$MSO=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:MSO')->item(0)->nodeValue;
-$SRB=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:SRB')->item(0)->nodeValue;
-$IOPrio=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityManagement')->item(0)->nodeValue;
-$DynAlias=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DynamicAliasManagement')->item(0)->nodeValue;
-$IOPriorityGroupsEnabled=$xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityGroupsEnabled')->item(0)->nodeValue;
+$CPU = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:CPU')->item(0)->nodeValue;
+$IOC = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:IOC')->item(0)->nodeValue;
+$MSO = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:MSO')->item(0)->nodeValue;
+$SRB = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceCoefficients/wlm:SRB')->item(0)->nodeValue;
+$IOPrio = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityManagement')->item(0)->nodeValue;
+$DynAlias = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DynamicAliasManagement')->item(0)->nodeValue;
+$node = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:IOPriorityGroupsEnabled')->item(0);
+if($node != null){
+  $IOPriorityGroupsEnabled = $node->nodeValue;
+}else{
+  $IOPriorityGroupsEnabled = "";
+}
+
 $node = $xpath->query('/wlm:ServiceDefinition/wlm:ServiceParameter/wlm:ServiceOptions/wlm:DeactivateDiscretionaryGoalManagement')->item(0);
 if($node != null){
   $DeactivateDiscretionaryGoalManagement= $node->nodeValue;
@@ -1563,7 +1576,13 @@ if($resGrps->length){
     $rgDesc=$xpath->query("wlm:Description",$rg)->item(0)->nodeValue;
     
     // Pick up type - and tidy up
-    $rgType=$xpath->query("wlm:Type",$rg)->item(0)->nodeValue;
+    $node =$xpath->query("wlm:Type",$rg)->item(0);
+    if($node != null){
+      $rgType = $node->nodeValue;
+    }else{
+      $rgType = "&nbsp;";
+    }
+    
     switch($rgType){
     case "":
       $rgTypeHTML="&nbsp";
@@ -2043,7 +2062,12 @@ echo "<tbody>\n";
 foreach($workloads as $wl){
   $wlName=$xpath->query('wlm:Name',$wl)->item(0)->nodeValue;
 
-  $wlDesc=$xpath->query('wlm:Description',$wl)->item(0)->nodeValue;
+  $node = $xpath->query('wlm:Description',$wl)->item(0);
+  if($node != null){
+    $wlDesc = $node->nodeValue;
+  }else{
+    $wlDesc = "&nbsp";
+  }
   
   
   // Pick up creation date and user
@@ -2479,107 +2503,111 @@ echo "</table>\n";
 // List application environments
 echo "<a href='#top'><h2 id='applEnvs'>Application Environments</h2></a>\n";
 
-echo "<table class=scrollable border='1'>\n";
-echo "<thead>\n";
-echo "<tr>\n";
-echo "<th style='min-width: 200px; max-width: 200px;'>Name</th>\n";
-echo "<th style='min-width: 300px; max-width: 300px;'>Description</th>\n";
-echo "<th>Subsystem<br/>Type</th>\n";
-echo "<th>Address<br/>Space<br/>Limit</th>\n";
-echo "<th>NUMTCB</th>\n";
-echo "<th>Procedure<br/>Name</th>\n";
-echo "<th style='min-width: 300px; max-width: 300px;'>Parameters</th>\n";
-echo "</tr>\n";
-echo "</thead>\n";
-
-echo "<tbody>\n";
-
-foreach($aes as $ae){
-  $aeName=$xpath->query('wlm:Name',$ae)->item(0)->nodeValue;
-
-  $aeDesc=$xpath->query('wlm:Description',$ae)->item(0)->nodeValue;
-  
-  $aeSubsysType=$xpath->query('wlm:SubsystemType',$ae)->item(0)->nodeValue;
-  
-  $aeLimit=$xpath->query('wlm:Limit',$ae)->item(0)->nodeValue;
-  switch($aeLimit){
-  case "SingleASPerSystem":
-    $aeLimitHTML="1 AS per system";
-    break;
-  case "NoLimit":
-    $aeLimitHTML="No limit";
-    break;
-  default:
-    $aeLimitHTML=$aeLimit;
-  }
-  
-  $aeProcName=$xpath->query('wlm:ProcedureName',$ae)->item(0)->nodeValue;
-  if($aeProcName==$aeName){
-    $aeProcName="=";
-    $aeProcAlign='center';
-  }else{
-    $aeProcAlign='left';
-  }
-  
-  $DNL = $xpath->query('wlm:StartParameter', $ae);
-  $NUMTCB = '&nbsp;';
-  $DB2SSN ='';
-  if($DNL->length > 0){
-    /* Get Application Environment start oarameters */
-    $aeStartParms = $DNL->item(0)->nodeValue;
-    
-    /* Parse NUMTCB - if present */
-    $NUMTCBpos = strpos($aeStartParms, 'NUMTCB=');
-    if($NUMTCBpos !== false){
-      $commaPos = strpos($aeStartParms, ',', $NUMTCBpos+7);
-      if($commaPos !== false){
-        $NUMTCB = strval(intval(substr($aeStartParms, $NUMTCBpos + 7, $commaPos - $NUMTCBpos - 7)));
-      } else {
-        $NUMTCB = strval(intval(substr($aeStartParms, $NUMTCBpos + 7)));
-      }
-    }
-    
-    /* Parse DB2SSN - if present */
-    $DB2SSNpos = strpos($aeStartParms, 'DB2SSN=');
-    if($DB2SSNpos !== false){
-      $commaPos = strpos($aeStartParms, ',', $DB2SSNpos+7);
-      if($commaPos !== false){
-        $DB2SSN = substr($aeStartParms, $DB2SSNpos + 7, $commaPos - $DB2SSNpos - 7);
-      } else {
-        $DB2SSN = substr($aeStartParms, $DB2SSNpos + 7);
-      }
-      
-      if($DB2SSN !== "&IWMSSNM"){
-        $aeStartParms = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeStartParms);
-      }
-      
-    }
-  }else{
-    $aeStartParms="";
-  }
-  
-  /* Massage Application Environment - if the Db2 subsystem name is present and in the AE name */
-  /* Also the description */
-  if($DB2SSN !== ""){
-    $aeName = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeName);
-    $aeDesc = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeDesc);
-  }
-
-  echo "<tr>";
-  echo cell(linkify('AE',$aeName),'left',200);
-  echo cell($aeDesc,"left",300);
-  echo cell($aeSubsysType);
-  echo cell($aeLimitHTML);
-  echo cell($NUMTCB,'right');
-  echo cell($aeProcName,$aeProcAlign);
-  echo cell($aeStartParms,"left",300);
+if($aes->length > 0){
+  echo "<table class=scrollable border='1'>\n";
+  echo "<thead>\n";
+  echo "<tr>\n";
+  echo "<th style='min-width: 200px; max-width: 200px;'>Name</th>\n";
+  echo "<th style='min-width: 300px; max-width: 300px;'>Description</th>\n";
+  echo "<th>Subsystem<br/>Type</th>\n";
+  echo "<th>Address<br/>Space<br/>Limit</th>\n";
+  echo "<th>NUMTCB</th>\n";
+  echo "<th>Procedure<br/>Name</th>\n";
+  echo "<th style='min-width: 300px; max-width: 300px;'>Parameters</th>\n";
   echo "</tr>\n";
+  echo "</thead>\n";
+
+  echo "<tbody>\n";
+
+  foreach($aes as $ae){
+    $aeName=$xpath->query('wlm:Name',$ae)->item(0)->nodeValue;
+
+    $aeDesc=$xpath->query('wlm:Description',$ae)->item(0)->nodeValue;
+  
+    $aeSubsysType=$xpath->query('wlm:SubsystemType',$ae)->item(0)->nodeValue;
+  
+    $aeLimit=$xpath->query('wlm:Limit',$ae)->item(0)->nodeValue;
+    switch($aeLimit){
+    case "SingleASPerSystem":
+      $aeLimitHTML="1 AS per system";
+      break;
+    case "NoLimit":
+      $aeLimitHTML="No limit";
+      break;
+    default:
+      $aeLimitHTML=$aeLimit;
+    }
+  
+    $aeProcName=$xpath->query('wlm:ProcedureName',$ae)->item(0)->nodeValue;
+    if($aeProcName==$aeName){
+      $aeProcName="=";
+      $aeProcAlign='center';
+    }else{
+      $aeProcAlign='left';
+    }
+  
+    $DNL = $xpath->query('wlm:StartParameter', $ae);
+    $NUMTCB = '&nbsp;';
+    $DB2SSN ='';
+    if($DNL->length > 0){
+      /* Get Application Environment start oarameters */
+      $aeStartParms = $DNL->item(0)->nodeValue;
+    
+      /* Parse NUMTCB - if present */
+      $NUMTCBpos = strpos($aeStartParms, 'NUMTCB=');
+      if($NUMTCBpos !== false){
+        $commaPos = strpos($aeStartParms, ',', $NUMTCBpos+7);
+        if($commaPos !== false){
+          $NUMTCB = strval(intval(substr($aeStartParms, $NUMTCBpos + 7, $commaPos - $NUMTCBpos - 7)));
+        } else {
+          $NUMTCB = strval(intval(substr($aeStartParms, $NUMTCBpos + 7)));
+        }
+      }
+    
+      /* Parse DB2SSN - if present */
+      $DB2SSNpos = strpos($aeStartParms, 'DB2SSN=');
+      if($DB2SSNpos !== false){
+        $commaPos = strpos($aeStartParms, ',', $DB2SSNpos+7);
+        if($commaPos !== false){
+          $DB2SSN = substr($aeStartParms, $DB2SSNpos + 7, $commaPos - $DB2SSNpos - 7);
+        } else {
+          $DB2SSN = substr($aeStartParms, $DB2SSNpos + 7);
+        }
+      
+        if($DB2SSN !== "&IWMSSNM"){
+          $aeStartParms = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeStartParms);
+        }
+      
+      }
+    }else{
+      $aeStartParms="";
+    }
+  
+    /* Massage Application Environment - if the Db2 subsystem name is present and in the AE name */
+    /* Also the description */
+    if($DB2SSN !== ""){
+      $aeName = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeName);
+      $aeDesc = str_replace($DB2SSN, "<b>" . $DB2SSN . "</b>", $aeDesc);
+    }
+
+    echo "<tr>";
+    echo cell(linkify('AE',$aeName),'left',200);
+    echo cell($aeDesc,"left",300);
+    echo cell($aeSubsysType);
+    echo cell($aeLimitHTML);
+    echo cell($NUMTCB,'right');
+    echo cell($aeProcName,$aeProcAlign);
+    echo cell($aeStartParms,"left",300);
+    echo "</tr>\n";
+    }
+
+  echo "</tbody>\n";
+  echo "</table>\n";
+}else{
+  echo "<p>There are no application environments.</p>\n";
 }
 
-echo "</tbody>\n";
-echo "</table>\n";
-
-if($rs->length){
+if($rs->length > 0){
   // List resources - as have some
   echo "<a href='#top'><h2 id='resources'>Resources</h2></a>\n";
 
