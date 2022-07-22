@@ -113,6 +113,7 @@
 //          MGLP Handle AccountingInformationGroup in Classification Rules
 // 10/27/21 MGLP PHP 8 fixes
 // 11/04/21 MGLP More PHP 8 fixes
+// 19/07/22 MGLP Handle empty description @ former line 1432
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -1428,9 +1429,15 @@ foreach($classifications as $c){
   // Pick up subsystem name
   $subsys=$xpath->query("wlm:SubsystemType",$c)->item(0)->nodeValue;
   
+
   // Pick up description
-  $desc=$xpath->query("wlm:Description",$c)->item(0)->nodeValue;
-  
+  $node=$xpath->query("wlm:Description",$c)->item(0);
+  if($node != null){
+    $desc = $node->nodeValue;
+  }else{
+    $desc = "";
+  }
+    
   // Pick up default service class
   $NDL=$xpath->query("wlm:DefaultServiceClassName",$c);
   if($NDL->length>0){
