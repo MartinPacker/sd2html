@@ -114,6 +114,7 @@
 // 10/27/21 MGLP PHP 8 fixes
 // 11/04/21 MGLP More PHP 8 fixes
 // 19/07/22 MGLP Handle empty description @ former line 1432
+// 23/07/21 MGLP Rework Service Policies table. Another tiny PHP 8 fix
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -1725,28 +1726,6 @@ if($resGrps->length){
 // List service policies
 echo "<a href='#top'><h2 id='srvPols'>Service Policies</h2></a>\n";
 
-echo "<table class=scrollable border='1'>\n";
-echo "<thead>\n";
-echo "<tr>\n";
-echo "<th>Name</th>\n";
-echo "<th>Description</th>\n";
-echo "<th><strong>Service<br/>Class<br/>Overrides</strong></th>\n";
-echo "<th>Duration</th>\n";
-echo "<th>Importance</th>\n";
-echo "<th>Goal Type</th>\n";
-echo "<th>Value</th>\n";
-echo "<th><strong>Resource<br/>Group<br/>Overrides</strong></th>\n";
-echo "<th>Types</th>\n";
-echo "<th>Minimum</th>\n";
-echo "<th>Maximum</th>\n";
-echo "<th>Created</th>\n";
-echo "<th>User</th>\n";
-echo "<th>Updated</th>\n";
-echo "<th>User</th>\n";
-echo "</tr>\n";
-echo "</thead>\n";
-
-echo "<tbody>\n";
 foreach($srvPols as $sp){
   $spName=$xpath->query("wlm:Name",$sp)->item(0)->nodeValue;
   
@@ -1754,45 +1733,116 @@ foreach($srvPols as $sp){
   $spDesc=$xpath->query("wlm:Description",$sp)->item(0)->nodeValue;
 
   echo "<tr>\n";
-  echo cell($spName)."\n";
   
   if($spDesc==""){
     $spDesc="&nbsp";
+  }else{
+    $spDesc=" - " . $spDesc;
   }
-  echo cell($spDesc)."\n";
+
+  echo "<a href='#top'><h3 id='SP_$spName'>$spName $spDesc</h3></a>\n";
+
+  // Pick up creation date and user
+  $spCreationDate=substr($xpath->query("wlm:CreationDate",$sp)->item(0)->nodeValue,0,10);
+  $spCreationUser=$xpath->query("wlm:CreationUser",$sp)->item(0)->nodeValue;
+
+  if($spCreationDate==""){
+    $spCreationDateHTML="&nbsp";
+  }else{
+    $spCreationDateHTML=$spCreationDate;
+  }
+
+  switch($spCreationUser){
+  case "":
+    $spCreationUserHTML="&nbsp";
+    break;
+  case "CLW":
+    $spCreationUserHTML="Cheryl<br/>Watson";
+    break;
+  default:
+    $spCreationUserHTML=$spCreationUser;
+  }
+
+  echo "<p>Created: &nbsp;&nbsp;$spCreationDateHTML by $spCreationUserHTML</p>\n";
   
+  // Pick up modification date and user
+  $spModificationDate=substr($xpath->query("wlm:ModificationDate",$sp)->item(0)->nodeValue,0,10);
+  $spModificationUser=$xpath->query("wlm:ModificationUser",$sp)->item(0)->nodeValue;
+  
+  switch($spModificationDate){
+  case "":
+    $spModificationDateHTML="";
+    break;
+  default:
+    if($spModificationDate==$spCreationDate){
+      $spModificationDateHTML="";
+    }else{
+      $spModificationDateHTML = $spModificationDate;
+    }
+  }
+
+  if($spModificationUser=="" | $spModificationDateHTML=="None"){
+    $spModificationUserHTML="&nbsp";
+  }else{
+  	if($spModificationUser=="CLW"){
+	    $spModificationUserHTML="Cheryl<br/>Watson";
+  	}else{  	
+	    $spModificationUserHTML=$spModificationUser;
+  	}
+  }
+
+  if($spModificationDateHTML != ""){
+    echo "<p>Modified: $spModificationDateHTML by $spModificationUserHTML</p>\n";
+  }
+  
+
   // Service Class Overrides
   $scOvers=$xpath->query('wlm:ServiceClassOverrides/wlm:ServiceClassOverride',$sp);
+  $rgOvers=$xpath->query('wlm:ResourceGroupOverrides/wlm:ResourceGroupOverride',$sp);
   $oversName="";
   $oversType="";
   $oversMin="";
   $oversMax="";
 
-  $scGoalTypes="";
-  $scImportances="";
-  $scDurations="";
-  $scValues="";
+  if($scOvers->length>0){
+      echo "<a href='#top'><h4>Service Class Overrides</h4></a>\n";
+    echo "<table class=scrollable border='1'>\n";
+    echo "<thead>\n";
+    echo "<tr>\n";
+    echo "<th>Name</th>\n";
+    echo "<th>Period</th>\n";
+    echo "<th>Duration</th>\n";
+    echo "<th>Importance</th>\n";
+    echo "<th>Goal Type</th>\n";
+    echo "<th>Value</th>\n";
+    echo "<th>Resource<br/>Group<br/>Override</th>\n";
+    echo "</tr>\n";
+    echo "</thead>\n";
+
+    echo "<tbody>\n";
+  }
 
   foreach($scOvers as $scOver){
+    $scGoalTypes="";
+    $scImportances="";
+    $scDurations="";
+    $scValues="";
+    $scPeriods = "";
+    
     $scOverName=$xpath->query("wlm:ServiceClassName",$scOver)->item(0)->nodeValue;
     $oversName.=href('SC',$scOverName)."<br/>";
+    echo cell(href("SC", $scOverName))."\n";
 
     // Using children of Goal node as different types with own node names   
     $scGoals=$xpath->query('wlm:Goal/*',$scOver);
 
     // Add blank rows for Service Class Name
     $oversName.=str_repeat("&nbsp;<br/>",$scGoals->length);
+    $scPeriod = 0;
     foreach($scGoals as $goal){
-      // Importance
-      $node = $xpath->query('wlm:Importance',$goal)->item(0);
-      if($node != null){
-        $scImportance = $node->nodeValue;
-      }else{
-        $scImportance = "";
-      }
+      $scPeriod++;
+      $scPeriods.="$scPeriod<br/>";
       
-      $scImportances.="$scImportance<br/>";
-
       // Duration
       $NDL=$xpath->query('wlm:Duration',$goal);
       if($NDL->length>0){
@@ -1803,6 +1853,16 @@ foreach($srvPols as $sp){
 
       if($scDuration=="") $scDuration="&nbsp;"; 
       $scDurations.="$scDuration<br/>";
+
+      // Importance
+      $node = $xpath->query('wlm:Importance',$goal)->item(0);
+      if($node != null){
+        $scImportance = $node->nodeValue;
+      }else{
+        $scImportance = "";
+      }
+      
+      $scImportances.="$scImportance<br/>";
       
       // Goal type and value
       $scGoalType=$goal->nodeName;
@@ -1864,141 +1924,109 @@ foreach($srvPols as $sp){
         $scValues.="?$scGoalType?<br/>";
       }
       $scGoalTypes.="$scGoalType<br/>";
+
     }
+    
+    echo cell($scPeriods, "right")."\n";
+	echo cell($scDurations, "right")."\n";
+	echo cell($scImportances, "right")."\n";
+	echo cell($scGoalTypes)."\n";
+	echo cell($scValues, "right")."\n";
 
     // Put a blank line under each Service Class;
     $scDurations.="&nbsp;<br/>";
     $scImportances.="&nbsp;<br/>";
     $scGoalTypes.="&nbsp;<br/>";
     $scValues.="&nbsp;<br/>";
+    
+    // Resource group override for this Service class
+    $scrgNodes=$xpath->query('wlm:ResourceGroupName',$scOver);
+    if($scrgNodes->length > 0){
+       echo cell(href("RG", $scrgNodes[0]->nodeValue))."\n";	
+    }
+    echo "</tr>\n";
   }
-  if($scOvers->length==0){
-    echo cell("None")."\n";
-    echo blank_cells(4)."\n";
-	}else{
-	  echo cell($oversName)."\n";
-	  echo cell($scDurations)."\n";
-	  echo cell($scImportances)."\n";
-	  echo cell($scGoalTypes)."\n";
-	  echo cell($scValues)."\n";
-	}
-
+   
+  if($scOvers->length>0){
+    echo "</tbody>\n";
+    echo "</table>\n";
+  }
   
   // Resource Group Overrides
   $rgOvers=$xpath->query('wlm:ResourceGroupOverrides/wlm:ResourceGroupOverride',$sp);
-  $oversName="";
-  $oversType="";
-  $oversMin="";
-  $oversMax="";
+
+  if($rgOvers->length>0){
+    echo "<a href='#top'><h4>Resource Group Overrides</h4></a>\n";
+
+    echo "<table class=scrollable border='1'>\n";
+    echo "<thead>\n";
+    echo "<tr>\n";
+    echo "<th>Name</th>\n";
+    echo "<th>Type</th>\n";
+    echo "<th>Minimum</th>\n";
+    echo "<th>Maximum</th>\n";
+    echo "</tr>\n";
+    echo "</thead>\n";
+
+    echo "<tbody>\n";
+  }
 
   foreach($rgOvers as $rgOver){
+    echo "<tr>\n";
     $rgOverName=$xpath->query("wlm:ResourceGroupName",$rgOver)->item(0)->nodeValue;
-    $oversName.="<a href='#RG_$rgOverName'>$rgOverName</a><br/>";
+    $oversName ="<a href='#RG_$rgOverName'>$rgOverName</a><br/>";
+    echo cell("<a href='#RG_$rgOverName'>$rgOverName</a>")."\n";
 
     $rgOverType=$xpath->query("wlm:Type",$rgOver)->item(0)->nodeValue;
     switch ($rgOverType) {
     case 'PercentageLPARShare':
-      $oversType.="Percentage LPAR Share<br/>";
+      $oversType="Percentage LPAR Share";
       break;
     case 'CPUServiceUnits':
-      $oversType.="CPU Service Units<br/>";
+      $oversType="CPU Service Units";
       break;
     case 'NumberCPsTimes100':
-	  $oversType.="Percentage Of A CP<br/>";
+	  $oversType="Percentage Of A CP";
 	  break;
     default:
-      $oversType.="$rgOverType<br/>";
+      $oversType.="$rgOverType";
       break;
     }
 
+    echo cell($oversType)."\n";
     $node = $xpath->query("wlm:CapacityMinimum",$rgOver)->item(0);
     if($node != null){
       $rgOverCapMin = $node->nodeValue;
+      
+      if($rgOverCapMin == 0) $rgOverCapMin = "&nbsp;";
     }else{
       $rgOverCapMin= "";
     }
     
-    $oversMin.="$rgOverCapMin<br/>";
+    echo cell($rgOverCapMin,'right')."\n";
+
 
     $node = $xpath->query("wlm:CapacityMaximum",$rgOver)->item(0);
     if($node != null){
       $rgOverCapMax = $node->nodeValue;
+
+      if($rgOverCapMax == 0) $rgOverCapMax = "&nbsp;";
     }else{
       $rgOverCapMax= "";
     }
     
 
-    $oversMax.="$rgOverCapMax<br/>";
+    echo cell($rgOverCapMax,'right')."\n";
+    
+    echo "</tr>\n";
   }
 
-  if($rgOvers->length==0){
-    echo cell("None")."\n";
-    echo blank_cells(3)."\n";
-  }else{
-    echo cell($oversName)."\n";
-    echo cell($oversType)."\n";
-    echo cell($oversMin,'right')."\n";
-    echo cell($oversMax,'right')."\n";
-  }
-  // Pick up creation date and user
-  $spCreationDate=substr($xpath->query("wlm:CreationDate",$sp)->item(0)->nodeValue,0,10);
-  $spCreationUser=$xpath->query("wlm:CreationUser",$sp)->item(0)->nodeValue;
-
-  if($spCreationDate==""){
-    $spCreationDateHTML="&nbsp";
-  }else{
-    $spCreationDateHTML=$spCreationDate;
-  }
-
-  switch($spCreationUser){
-  case "":
-    $spCreationUserHTML="&nbsp";
-    break;
-  case "CLW":
-    $spCreationUserHTML="Cheryl<br/>Watson";
-    break;
-  default:
-    $spCreationUserHTML=$spCreationUser;
-  }
-
-  // Pick up modification date and user
-  $spModificationDate=substr($xpath->query("wlm:ModificationDate",$sp)->item(0)->nodeValue,0,10);
-  $spModificationUser=$xpath->query("wlm:ModificationUser",$sp)->item(0)->nodeValue;
-  
-  switch($spModificationDate){
-  case "":
-    $spModificationDateHTML="&nbsp";
-    break;
-  default:
-    if($spModificationDate==$spCreationDate){
-      $spModificationDateHTML="None";
-    }else{
-      $spModificationDateHTML=$spModificationDate;
-    }
-  }
-
-  if($spModificationUser=="" | $spModificationDateHTML=="None"){
-    $spModificationUserHTML="&nbsp";
-  }else{
-  	if($spModificationUser=="CLW"){
-	    $spModificationUserHTML="Cheryl<br/>Watson";
-  	}else{  	
-	    $spModificationUserHTML=$spModificationUser;
-  	}
-  }
-  echo cell($spCreationDateHTML)."\n";
-
-  echo cell($spCreationUserHTML)."\n";
-
-  echo cell($spModificationDateHTML)."\n";
-
-  echo cell($spModificationUserHTML)."\n";
-
-  echo "</tr>\n";
+  if($rgOvers->length > 0){
+    echo "</tbody>\n";
+    echo "</table>\n";
+  }  
 }
 
-echo "</tbody>\n";
-echo "</table>\n";
 
 // List workloads
 echo "<a href='#top'><h2 id='workloads'>Workloads And Service Classes</h2></a>\n";
@@ -2545,7 +2573,13 @@ if($aes->length > 0){
       $aeLimitHTML=$aeLimit;
     }
   
-    $aeProcName=$xpath->query('wlm:ProcedureName',$ae)->item(0)->nodeValue;
+    $aeProcNameNode=$xpath->query('wlm:ProcedureName',$ae)->item(0);
+    if($aeProcNameNode != null){
+      $aeProcName=$aeProcNameNode->nodeValue;
+    }else{
+      $aeProcName = "&nbsp;";
+    }
+    
     if($aeProcName==$aeName){
       $aeProcName="=";
       $aeProcAlign='center';
