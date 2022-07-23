@@ -114,7 +114,7 @@
 // 10/27/21 MGLP PHP 8 fixes
 // 11/04/21 MGLP More PHP 8 fixes
 // 19/07/22 MGLP Handle empty description @ former line 1432
-// 23/07/21 MGLP Rework Service Policies table. Another tiny PHP 8 fix
+// 23/07/21 MGLP Rework Service Policies table. Another 3 PHP 8 fixes
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -2557,7 +2557,12 @@ if($aes->length > 0){
   foreach($aes as $ae){
     $aeName=$xpath->query('wlm:Name',$ae)->item(0)->nodeValue;
 
-    $aeDesc=$xpath->query('wlm:Description',$ae)->item(0)->nodeValue;
+    $aeDescNode=$xpath->query('wlm:Description',$ae)->item(0);
+    if($aeDescNode != null){
+      $aeDesc = $aeDescNode->nodeValue;
+    }else{
+      $aeDesc = "&nbsp";
+    }
   
     $aeSubsysType=$xpath->query('wlm:SubsystemType',$ae)->item(0)->nodeValue;
   
@@ -2708,7 +2713,12 @@ if($ses->length){
   foreach($ses as $se){
     $seName=$xpath->query('wlm:Name',$se)->item(0)->nodeValue;
 
-    $seDesc=$xpath->query('wlm:Description',$se)->item(0)->nodeValue;
+    $seDescNode=$xpath->query('wlm:Description',$se)->item(0);
+    if($seDescNode != null){
+      $seDesc = $seDescNode->nodeValue;
+    }else{
+      $seDesc = "&nbsp;";
+    }
     
     $seRNs=$xpath->query('wlm:ResourceNames/wlm:ResourceName',$se);
     $seRNames="";
