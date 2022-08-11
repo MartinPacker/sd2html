@@ -22,7 +22,7 @@ To run from the command line you would need PHP installed.
 
 Then you uses stdin and stdout like so
 
-	php sd2html < <my-xml> > <my.html>
+	php sd2html < <my-xml.xml> > <my-html.html>
 
 Once you've converted to HTML you use your browser to view the HTML version.
 
