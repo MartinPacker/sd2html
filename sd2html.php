@@ -115,6 +115,8 @@
 // 11/04/21 MGLP More PHP 8 fixes
 // 19/07/22 MGLP Handle empty description @ former line 1432
 // 23/07/21 MGLP Rework Service Policies table. Another 3 PHP 8 fixes
+// 25/07/22 MGLP Indicate whether run from a webserver or command line
+// 11/08/22 MGLP Allow to run from command line - using stdin / stdout
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -638,7 +640,22 @@ function do_classification_rules($c,$l){
   return;
 }
 
-$sds=$_GET['sds'];
+if(PHP_SAPI =='cli'){
+  $commandLine = true;
+  echo "<p>Run from command line.</p>\n";
+
+  $file = file_get_contents('php://stdin');
+}else{
+  $commandLine = false;
+  echo "<p>Run from web server.</p>\n";
+
+  $sds = $_GET['sds'];
+  echo "<p>Source XML file: $sds</p>\n";
+
+  $file = file_get_contents(str_replace(" ", "%20", $sds));
+}
+
+
 
 // Blank cell
 $bc=cell("&nbsp;");
@@ -647,11 +664,7 @@ $bc=cell("&nbsp;");
 $seenRCs=array();
 $seenSCs=array();
 
-
-echo "<p>Source XML file: $sds</p>\n";
-
-// Load file and remove newlines
-$file = file_get_contents(str_replace(" ", "%20", $sds));
+// Remove newlines
 $cleanedFile = str_replace(["\n","\r",chr(0x1a)], ["", "", ""], $file);
 
 // Load the cleaned up XML
@@ -776,7 +789,13 @@ foreach($systemElements as $se){
 $subsystems = [];
 $subsystemElements = $xpath->query('//wlm:QualifierType [text()="SubsystemInstance"]');
 foreach($subsystemElements as $se){
-    $subsystemName = trim($se->nextSibling->nextSibling->nodeValue);
+    $subsystemNameNode = $se->nextSibling->nextSibling;
+    if($subsystemNameNode != null){
+      $subsystemName = trim($subsystemNameNode->nodeValue);
+    }else{
+      $subsystemName = "";
+    }
+    
     if(array_search($subsystemName, $subsystems) === false){
         array_push($subsystems, $subsystemName);
     }
@@ -975,7 +994,12 @@ foreach ($creationDates as $cd) {
   $creationYear=substr($cd->nodeValue,0,4);
   if($creationYear!="1900"){
     $creationYears[$creationYear]++;
-    $creationUser = $xpath->query('wlm:CreationUser',$cd->parentNode)[0]->nodeValue;
+    $creationUserNode = $xpath->query('wlm:CreationUser',$cd->parentNode)[0];
+    if($creationUserNode != null){
+      $creationUser = $creationUserNode->nodeValue;
+    }else{
+      $creationUser = "";
+    }
 
     if(strpos($creationUser,"/")!==false){
       // Picked up date as no creation user
@@ -1006,7 +1030,12 @@ foreach ($modificationDates as $md) {
   $modificationYear=substr($md->nodeValue,0,4);
   if($modificationYear!="1900"){
     $modificationYears[$modificationYear]++;
-    $modificationUser = $xpath->query('wlm:ModificationUser',$md->parentNode)[0]->nodeValue;
+    $modificationUserNode = $xpath->query('wlm:ModificationUser',$md->parentNode)[0];
+    if($modificationUserNode != null){
+      $modificationUser = $modificationUserNode -> nodeValue;
+    }else{
+      $modificationUser = "";
+    }
 
     if (!in_array($modificationUser, $uniqueUserids))
     {
