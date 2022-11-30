@@ -121,6 +121,7 @@
 //               Added statistics on goal types and overrides thereof. Likewise
 //               resource groups
 // 11/30/22 MGLP Added Service Policies table
+//               Fixed Prodid level extraction to be tail of last word
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -829,11 +830,8 @@ foreach($performanceGroupElements as $pge){
 // Put out level
 $sdLevel=$xpath->query('/wlm:ServiceDefinition/wlm:Level')->item(0)->nodeValue;
 $sdProdId1=explode(" ", $xpath->query('/wlm:ServiceDefinition/wlm:ProdId')->item(0)->nodeValue);
-if(count($sdProdId1) > 7){
-  $sdProdId = $sdProdId1[7];
-}else{
-  $sdProdId = "";
-}
+$ProdIdWords = count($sdProdId1);
+$sdProdId = substr($sdProdId1[$ProdIdWords - 1], 5);
 
 echo "<a href='#top'><h2 id='statistics'>Statistics</h2></a>\n";
 
