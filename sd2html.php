@@ -117,6 +117,10 @@
 // 23/07/21 MGLP Rework Service Policies table. Another 3 PHP 8 fixes
 // 25/07/22 MGLP Indicate whether run from a webserver or command line
 // 11/08/22 MGLP Allow to run from command line - using stdin / stdout
+// 11/29/22 MGLP Scrollable table max increased from 500 to 850
+//               Added statistics on goal types and overrides thereof. Likewise
+//               resource groups
+// 11/30/22 MGLP Added Service Policies table
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -177,7 +181,7 @@ table.scrollable tbody, table.scrollable thead
 
 table.scrollable tbody{
   overflow: auto;
-  max-height: 500px;
+  max-height: 850px;
 }
 
 table.scrollable th, table.scrollable td{
@@ -717,9 +721,16 @@ $workloads=$xpath->query('/wlm:ServiceDefinition/wlm:Workloads/wlm:Workload');
 $workloadp=$xpath->query('/wlm:ServiceDefinition/wlm:Workloads')[0];
 
 $velocityNodes=$xpath->query('//wlm:Velocity',$workloadp);
+$SCOVelocityNodes=$xpath->query('//wlm:ServiceClassOverride/wlm:Goal/wlm:Velocity',$workloadp);
+
 $percentileNodes=$xpath->query('//wlm:Percentile',$workloadp);
+$SCOPercentileNodes=$xpath->query('//wlm:ServiceClassOverride/wlm:Goal/wlm:PercentileResponseTime',$workloadp);
+
 $averageNodes=$xpath->query('//wlm:Average',$workloadp);
+$SCOAverageNodes=$xpath->query('//wlm:ServiceClassOverride/wlm:Goal/wlm:AverageResponseTime',$workloadp);
+
 $discretionaryNodes=$xpath->query('//wlm:Discretionary',$workloadp);
+$SCODiscretionaryNodes=$xpath->query('//wlm:ServiceClassOverride/wlm:Goal/wlm:Discretionary',$workloadp);
 
 $scPeriodCount = $velocityNodes->length + $averageNodes->length + $discretionaryNodes->length + $percentileNodes->length;
 
@@ -733,6 +744,10 @@ $resGrps=$xpath->query('/wlm:ServiceDefinition/wlm:ResourceGroups/wlm:ResourceGr
 if($resGrps->length){
   echo "<li><a href='#resGrps'>Resource Groups</a></li>\n";
 }
+
+$RGONodes=$xpath->query('//wlm:ResourceGroupOverride',$workloadp);
+$SCRGONodes=$xpath->query('//wlm:ServicePolicy/wlm:ServiceClassOverrides/wlm:ServiceClassOverride/wlm:ResourceGroupName',$workloadp);
+
 
 echo "<li><a href='#srvPols'>Service Policies</a></li>\n";
 echo "<li><a href='#workloads'>Workloads And Service Classes</a></li>\n";
@@ -841,9 +856,8 @@ echo "</tr>\n";
 echo "<tr>\n";
 echo "<td>Classification Rules</td><td>".$classificationNameNodes->length."</td>\n";
 echo "</tr>\n";
-
 echo "<tr>\n";
-echo "<td>Resource Groups</td><td>".$resGrps->length."</td>\n";
+echo "<td>&nbsp;</td><td>&nbsp;</td>\n";	
 echo "</tr>\n";
 
 echo "<tr>\n";
@@ -863,10 +877,82 @@ echo "<tr>\n";
 echo "<td>Service Class Periods</td><td>".$scPeriodCount."</td>\n";
 echo "</tr>\n";
 
+echo "<tr>\n";
+echo "<td>&nbsp;</td><td>&nbsp;</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Velocity</td><td>".$velocityNodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Of which overrides</td><td>".$SCOVelocityNodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>&nbsp;</td><td>&nbsp;</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Average Response Time</td><td>".$averageNodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Of which overrides</td><td>".$SCOAverageNodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>&nbsp;</td><td>&nbsp;</td>\n";
+echo "</tr>\n";
+
+
+echo "<tr>\n";
+echo "<td>Percentile Response Time</td><td>".$percentileNodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Of which overrides</td><td>".$SCOPercentileNodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>&nbsp;</td><td>&nbsp;</td>\n";
+echo "</tr>\n";
+
+
+echo "<tr>\n";
+echo "<td>Discretionary</td><td>".$discretionaryNodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Of which overrides</td><td>".$SCODiscretionaryNodes->length."</td>\n";
+echo "</tr>\n";
+
+
+echo "<tr>\n";
+echo "<td>&nbsp;</td><td>&nbsp;</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Resource Groups</td><td>".$resGrps->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Resource Group Overrides</td><td>".$RGONodes->length."</td>\n";
+echo "</tr>\n";
+
+echo "<tr>\n";
+echo "<td>Service Class Resource Group Overrides</td><td>".$SCRGONodes->length."</td>\n";
+echo "</tr>\n";
+
+
+echo "<tr>\n";
+echo "<td>&nbsp;</td><td>&nbsp;</td>\n";
+echo "</tr>\n";
 
 echo "<tr>\n";
 echo "<td>Report Classes</td><td>".$rcs->length."</td>\n";
 echo "</tr>\n";
+
 
 echo "<tr>\n";
 echo "<td>Application Environments</td><td>".$aes->length."</td>\n";
@@ -1755,6 +1841,32 @@ if($resGrps->length){
 // List service policies
 echo "<a href='#top'><h2 id='srvPols'>Service Policies</h2></a>\n";
 
+echo "<table class=scrollable border='1'>\n";
+echo "<thead>\n";
+echo "<tr>\n";
+echo "<th style='min-width: 100px; max-width: 100px;'>Service Policy</th>\n";
+echo "<th style='min-width: 300px; max-width: 300px;'>Description</th>\n";
+echo "</tr>\n";
+echo "</thead>\n";
+
+foreach($srvPols as $sp){
+  $spName=$xpath->query("wlm:Name",$sp)->item(0)->nodeValue;
+  
+  // Pick up description
+  $spDesc=$xpath->query("wlm:Description",$sp)->item(0)->nodeValue;
+  
+  if($spDesc==""){
+    $spDesc="&nbsp";
+  }
+
+  echo "<tr>\n";
+  echo "<td style='min-width: 100px; max-width: 100px;'><a href='#SP_$spName'>$spName</a></td>\n";
+  echo "<td style='min-width: 300px; max-width: 300px;'>$spDesc</td>\n";
+  echo "</tr>\n";
+}
+
+echo "</table>\n";
+
 foreach($srvPols as $sp){
   $spName=$xpath->query("wlm:Name",$sp)->item(0)->nodeValue;
   
@@ -1769,7 +1881,7 @@ foreach($srvPols as $sp){
     $spDesc=" - " . $spDesc;
   }
 
-  echo "<a href='#top'><h3 id='SP_$spName'>$spName $spDesc</h3></a>\n";
+  echo "<a href='#srvPols'><h3 id='SP_$spName'>$spName $spDesc</h3></a>\n";
 
   // Pick up creation date and user
   $spCreationDate=substr($xpath->query("wlm:CreationDate",$sp)->item(0)->nodeValue,0,10);
