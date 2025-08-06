@@ -46,7 +46,7 @@
 //               ProcedureName split apart as a qualifier
 // 11/11/13 MGLP Fix handling of note elements and smart out Resources
 //               and Scheduling environments.
-// 02/14/14 MGLP Added Subsystem Collection. Smart out resouce groups.
+// 02/14/14 MGLP Added Subsystem Collection. Smart out resource groups.
 //               Improved CSS. Handle Average Response Time goals.
 //               Suppress CPU Critical column if never specified.
 // 07/31/14 MGLP Fixed up nested classification rules and added description.
@@ -122,6 +122,19 @@
 //               resource groups
 // 11/30/22 MGLP Added Service Policies table
 //               Fixed Prodid level extraction to be tail of last word
+// 08/11/23 MGLP Fixed another null pointer nastygram. Added comment on single-period
+//               velocity override
+// 11/07/23 MGLP Fixed problem with counting average response time nodes
+// 10/04/24 MGLP Refactored service class overrides into 1 row per SC Period.
+//               Enhanced their diff'ing from the base policy
+// 11/04/24 MGLP Enhanced Resource Group Overrides to allo diff'ing from base policy
+// 12/04/24 MGLP Handle goal type changing to/from Discretionary better in policy diff'ing
+// 14/05/24 MGLP Statistics table now annotates each subsystem with its type
+//               Statistics table lists reporting attributes
+//               Procedure Name qualifier supported
+// 09/12/24 MGLP Override going from Discretionary to Velocity caused error. Fixed
+// 08/05/25 MGLP More fixes to missing nodes
+// 06/08/25 MGLP Handle RP Boost classification rules
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -130,6 +143,18 @@ $foregroundColourPalette = ['#0000C0','#00C000','#00C0C0','#C00000', '#C000C0', 
                             '#0000FF','#00FF00','#00FFFF','#FF0000', '#FF00FF', '#FFFF00',
                             '#000080','#008000','#008080','#800000', '#800080', '#808000'];
 $lForegroundColours = count($foregroundColourPalette);
+
+$baseVelocity = array();
+$baseImportance = array();
+$baseCPUCritical = array();
+$baseGoalType = array();
+$baseResourceGroup = array();
+$baseDuration = array();
+$baseRTGoal = array();
+$baseRGType = array();
+$baseRGMaximum = array();
+$baseRGMinimum = array();
+
 ?>
 <style type="text/css">
 sl
@@ -443,6 +468,9 @@ function do_classification_rules($c,$l){
   global $xpath,$bc,$maxClassificationRuleLevel,$seenRCs,$seenSCs;
   $crs=$xpath->query('wlm:ClassificationRules/wlm:ClassificationRule | wlm:ClassificationRule',$c);
   foreach($crs as $cr){
+    /***********************************************/
+    /* Do the analysis for the classification rule */
+    /***********************************************/
     $qtype=$xpath->query("wlm:QualifierType",$cr)->item(0)->nodeValue;
 
     $qvalue=$xpath->query("wlm:QualifierValue",$cr)->item(0)->nodeValue;
@@ -600,10 +628,21 @@ function do_classification_rules($c,$l){
     }
 
 
-    $storageCritical=$xpath->query("wlm:StorageCritical",$cr)->item(0)->nodeValue;
+    $node = $xpath->query("wlm:StorageCritical",$cr)->item(0);
+    if($node != null){
+      $storageCritical = $node->nodeValue;
+    } else {
+      $storageCritical = "";
+    }
+    
     if($storageCritical=="") $storageCritical="&nbsp";
     
-    $regionGoal=$xpath->query("wlm:RegionGoal",$cr)->item(0)->nodeValue;
+    $node = $xpath->query("wlm:RegionGoal",$cr)->item(0);
+    if($node != null){
+      $regionGoal= $node->nodeValue;
+    } else {
+      $regionGoal = "";
+    }
     if($regionGoal=="") $regionGoal="&nbsp";
     
     $node = $xpath->query("wlm:ReportingAttribute",$cr)->item(0);
@@ -615,30 +654,56 @@ function do_classification_rules($c,$l){
     
     if(($reportingAttribute=="") || ($reportingAttribute=="None")) $reportingAttribute="&nbsp";
 
+    $node = $xpath->query("wlm:Boost",$cr)->item(0);
+    if($node != null){
+      $boost = $node->nodeValue;
+      if($boost == "No")
+      {
+        $boost = "";
+      } else {
+      }
+    }else{
+      $boost = "";
+    }
+
+    /*************************************************/
+    /* Put out reporting for the classification rule */
+    /*************************************************/
+
+    /* Pad with appropriate blank cells for level */
     echo blank_cells(3*($l-1)+1);
+
+    /* Describe the rule qualifier */
     echo cell($qtypeHTML);
     echo cell($qvalueHTML);
     echo cell($desc);
 
+    /* Pad with more blank cells so all data fields start in the same place */
     if($maxClassificationRuleLevel-$l>0){
       echo str_repeat($bc,3*($maxClassificationRuleLevel-$l));
     }
     
+    /* Put out the data fields */
     echo cell(href("SC",$sclass));
     echo cell(href("RC",$rclass));
     echo cell($storageCritical,'center',75);
     echo cell($regionGoal,'center',75);
     echo cell($reportingAttribute,'center',75);
+    echo cell($boost,'center',75);
+    
+    /* 4 blank cells for creation / update info - as rules have none */
     echo blank_cells(4);
+
     echo "</tr>\n";
     
+    /* Recurse down one level within this Classification Rule element */
     do_classification_rules($cr,$l+1);
 
     // Blank row after the subsystem
     echo "<tr>\n".blank_cells(3+3*$maxClassificationRuleLevel);
 
     // Flag cells are narrower
-    echo blank_cells(2,'center',75);
+    echo blank_cells(3,'center',75);
     
     echo blank_cells(4)."</tr>";
   }
@@ -667,6 +732,7 @@ $bc=cell("&nbsp;");
 
 // List of seen Resource Classes
 $seenRCs=array();
+
 $seenSCs=array();
 
 // Remove newlines
@@ -727,7 +793,7 @@ $SCOVelocityNodes=$xpath->query('//wlm:ServiceClassOverride/wlm:Goal/wlm:Velocit
 $percentileNodes=$xpath->query('//wlm:Percentile',$workloadp);
 $SCOPercentileNodes=$xpath->query('//wlm:ServiceClassOverride/wlm:Goal/wlm:PercentileResponseTime',$workloadp);
 
-$averageNodes=$xpath->query('//wlm:Average',$workloadp);
+$averageNodes=$xpath->query('//wlm:AverageResponseTime',$workloadp);
 $SCOAverageNodes=$xpath->query('//wlm:ServiceClassOverride/wlm:Goal/wlm:AverageResponseTime',$workloadp);
 
 $discretionaryNodes=$xpath->query('//wlm:Discretionary',$workloadp);
@@ -803,14 +869,28 @@ foreach($systemElements as $se){
 
 // Work out what subsystems are explicitly named
 $subsystems = [];
+$subsystemTypes = [];
 $subsystemElements = $xpath->query('//wlm:QualifierType [text()="SubsystemInstance"]');
 foreach($subsystemElements as $se){
+    // Obtain the subsystem name node - if any
     $subsystemNameNode = $se->nextSibling->nextSibling;
     if($subsystemNameNode != null){
+      // Get its name
       $subsystemName = trim($subsystemNameNode->nodeValue);
+      
+      // Go up the tree to get the subsystem type
+      $myClassificationElement = $subsystemNameNode->parentNode->parentNode->parentNode;
+      if($myClassificationElement != null){
+        $mySubsystemType = trim($myClassificationElement->firstChild->nextSibling->nodeValue);
+      } else {
+      $mySubsystemType = "";
+      }
     }else{
       $subsystemName = "";
+      $mySubsystemType = "";
     }
+    
+    $subsystemTypes[$subsystemName] = $mySubsystemType;
     
     if(array_search($subsystemName, $subsystems) === false){
         array_push($subsystems, $subsystemName);
@@ -824,6 +904,15 @@ foreach($performanceGroupElements as $pge){
     $performanceGroup = trim($pge->nextSibling->nextSibling->nodeValue);
     if(array_search($performanceGroup, $performanceGroups) === false){
         array_push($performanceGroups, $performanceGroup);
+    }
+}
+
+$reportingAttributes = [];
+$RAElements = $xpath->query('//wlm:ReportingAttribute');
+foreach($RAElements as $RA){
+  $reportingAttribute = $RA->nodeValue;
+    if(array_search($reportingAttribute, $reportingAttributes) === false){
+        array_push($reportingAttributes, $reportingAttribute);
     }
 }
 
@@ -964,6 +1053,17 @@ echo "<tr>\n";
 echo "<td>Scheduling Environments</td><td>".$ses->length."</td>\n";
 echo "</tr>\n";
 
+$boostRules = 0;
+$boostNodes = $xpath->query("//wlm:Boost");
+foreach($boostNodes as $bn){
+    if($bn->nodeValue != "No"){
+        $boostRules++;
+    }
+}
+echo "<tr>\n";
+echo "<td>RP Boost Classification Rules</td><td>".$boostRules."</td>\n";
+echo "</tr>\n";
+
 // If sysplexes named in the rules then list them
 if(count($sysplexes) > 0){
     $sysplexNames="";
@@ -973,6 +1073,17 @@ if(count($sysplexes) > 0){
 
     echo "<tr>\n";
     echo "<td>Sysplex Names</td><td>" . $sysplexNames . "</td>\n";
+    echo "</tr>\n";
+}
+// If reporting attributes supported list them
+if(count($reportingAttributes) > 0){
+    $RANames="";
+    foreach($reportingAttributes as $RA){
+        $RANames = $RANames . $RA . " ";
+    }
+
+    echo "<tr>\n";
+    echo "<td>Reporting Attributes</td><td>" . $RANames . "</td>\n";
     echo "</tr>\n";
 }
 
@@ -992,7 +1103,7 @@ if(count($systems) > 0){
 if(count($subsystems) > 0){
     $subsystemNames="";
     foreach($subsystems as $sn){
-        $subsystemNames = $subsystemNames . $sn . " ";
+        $subsystemNames = $subsystemNames . $sn . " (" . $subsystemTypes[$sn] . ") ";
     }
 
     echo "<tr>\n";
@@ -1022,18 +1133,19 @@ echo "<a href='#top'><h2 id='notes'>Notes</h2></a>\n";
 $sdNotes=$xpath->query('/wlm:ServiceDefinition/wlm:Notes/wlm:Note');
 if($sdNotes->length > 0){
   // Have notes
-  $noteHTML="<pre>";
+  $noteHTML = "<br/><textarea cols=80 rows=30 readonly>\n";
   foreach($sdNotes as $note){
-    $noteText=$note->nodeValue;
+    $noteText = $note->nodeValue;
     if(!ctype_digit(trim($noteText))){
       // Is not a line number but real text
-      $noteText=str_replace("<","&lt;",$noteText);
-      $noteText=str_replace(">","&gt;",$noteText);
-      $noteText=str_replace(" ","&nbsp",$noteText);
-      $noteHTML.="$noteText\n";  
+      $noteText = str_replace("<", "&lt;", $noteText);
+      $noteText = str_replace(">", "&gt;", $noteText);
+      $noteText = str_replace(" ", "&nbsp", $noteText);
+      $noteHTML .= "$noteText\n";  
     }
   }
-  echo "$noteHTML</pre>";
+  $noteHTML .= "</textarea><br/>\n";
+  echo $noteHTML;
 }else{
   echo "<p>There are no notes.</p>\n";
 }
@@ -1327,6 +1439,9 @@ foreach($classification_groups as $cg){
   case "AccountingInformation":
     $cgQualifierTypeHTML="Accounting Information";
     break;
+  case "ProcedureName":
+    $cgQualifierTypeHTML="Procedure<br/>Name";
+    break;
   default:
     $cgQualifierTypeHTML=$cgQualifierType;  
   }
@@ -1380,7 +1495,7 @@ foreach($classification_groups as $cg){
     }
   }
 
-  if($cgModificationUser=="" | $cgModificationDateHTML=="None"){
+  if(($cgModificationUser=="") || ($cgModificationDateHTML=="None")){
     $cgModificationUserHTML="&nbsp";
   }else{
   	if($cgModificationUser=="CLW"){
@@ -1530,6 +1645,7 @@ echo "<th>Report<br/>Class</th>\n";
 echo "<th style='min-width: 75px; max-width: 75px;'>Storage<br/>Critical?</th>\n";
 echo "<th style='min-width: 75px; max-width: 75px;'>Region<br/>Goal?</th>\n";
 echo "<th style='min-width: 75px; max-width: 75px;'>Reporting<br/>Attribute</th>\n";
+echo "<th style='min-width: 75px; max-width: 75px;'>Recovery<br/>Process<br/>Boost</th>\n";
 echo "<th>Created</th>\n";
 echo "<th>User</th>\n";
 echo "<th>Updated</th>\n";
@@ -1628,7 +1744,7 @@ foreach($classifications as $c){
     }
   }
 
-  if($cModificationUser=="" | $cModificationDateHTML=="None"){
+  if(($cModificationUser=="") || ($cModificationDateHTML=="None")){
     $cModificationUserHTML="&nbsp";
   }else{
   	if($cModificationUser=="CLW"){
@@ -1642,7 +1758,7 @@ foreach($classifications as $c){
   echo "<tr>".cell("<strong>".linkify("SS",$subsys)."</strong><br/>$desc",'left',200).blank_cells(3*$maxClassificationRuleLevel);
   echo cell(href('SC',$defSC));
   echo cell(href('RC',$defRC));
-  echo blank_cells(3,'left',75); // Storage Critical, Region Goal, Reporting Attribute
+  echo blank_cells(4,'left',75); // Storage Critical, Region Goal, Reporting Attribute, Boost
   echo cell($cCreationDateHTML);
   echo cell($cCreationUserHTML);
   echo cell($cModificationDateHTML);
@@ -1659,7 +1775,7 @@ foreach($classifications as $c){
   echo "<tr>\n".blank_cells(3+3*$maxClassificationRuleLevel);
 
   // Flag cells are narrower
-  echo blank_cells(3,'center',75);
+  echo blank_cells(4,'center',75);
 
   echo blank_cells(4)."</tr>";
 }
@@ -1721,21 +1837,27 @@ if($resGrps->length){
     	$rgTypeHTML=$rgType;
     }
     
+    $baseRGType[$rgName] = $rgType;
+    
     // Pick up capacity maximum
     $rgCapMaxNodes=$xpath->query("wlm:CapacityMaximum",$rg);
     if($rgCapMaxNodes->length>0){
       $rgCapMax=$rgCapMaxNodes->item(0)->nodeValue;
     }else{
-      $rgCapMax="";
+      $rgCapMax="Not set";
     }
+    
+    $baseRGMaximum[$rgName] = $rgCapMax;
     
     // Pick up capacity minimum
     $rgCapMinNodes=$xpath->query("wlm:CapacityMinimum",$rg);
     if($rgCapMinNodes->length>0){
       $rgCapMin=$rgCapMinNodes->item(0)->nodeValue;
     }else{
-      $rgCapMin="";
+      $rgCapMin="Not set";
     }
+
+    $baseRGMinimum[$rgName] = $rgCapMin;
     
     // Pick up creation date and user
     $rgCreationDate=substr($xpath->query("wlm:CreationDate",$rg)->item(0)->nodeValue,0,10);
@@ -1774,7 +1896,7 @@ if($resGrps->length){
       }
     }
   
-    if($rgModificationUser=="" | $rgModificationDateHTML=="None"){
+    if(($rgModificationUser=="") || ($rgModificationDateHTML=="None")){
       $rgModificationUserHTML="&nbsp";
     }else{
     	if($rgModificationUser=="CLW"){
@@ -1836,335 +1958,6 @@ if($resGrps->length){
   echo "</tbody>\n";
   echo "</table>\n";
 }
-// List service policies
-echo "<a href='#top'><h2 id='srvPols'>Service Policies</h2></a>\n";
-
-echo "<table class=scrollable border='1'>\n";
-echo "<thead>\n";
-echo "<tr>\n";
-echo "<th style='min-width: 100px; max-width: 100px;'>Service Policy</th>\n";
-echo "<th style='min-width: 300px; max-width: 300px;'>Description</th>\n";
-echo "</tr>\n";
-echo "</thead>\n";
-
-foreach($srvPols as $sp){
-  $spName=$xpath->query("wlm:Name",$sp)->item(0)->nodeValue;
-  
-  // Pick up description
-  $spDesc=$xpath->query("wlm:Description",$sp)->item(0)->nodeValue;
-  
-  if($spDesc==""){
-    $spDesc="&nbsp";
-  }
-
-  echo "<tr>\n";
-  echo "<td style='min-width: 100px; max-width: 100px;'><a href='#SP_$spName'>$spName</a></td>\n";
-  echo "<td style='min-width: 300px; max-width: 300px;'>$spDesc</td>\n";
-  echo "</tr>\n";
-}
-
-echo "</table>\n";
-
-foreach($srvPols as $sp){
-  $spName=$xpath->query("wlm:Name",$sp)->item(0)->nodeValue;
-  
-  // Pick up description
-  $spDesc=$xpath->query("wlm:Description",$sp)->item(0)->nodeValue;
-
-  echo "<tr>\n";
-  
-  if($spDesc==""){
-    $spDesc="&nbsp";
-  }else{
-    $spDesc=" - " . $spDesc;
-  }
-
-  echo "<a href='#srvPols'><h3 id='SP_$spName'>$spName $spDesc</h3></a>\n";
-
-  // Pick up creation date and user
-  $spCreationDate=substr($xpath->query("wlm:CreationDate",$sp)->item(0)->nodeValue,0,10);
-  $spCreationUser=$xpath->query("wlm:CreationUser",$sp)->item(0)->nodeValue;
-
-  if($spCreationDate==""){
-    $spCreationDateHTML="&nbsp";
-  }else{
-    $spCreationDateHTML=$spCreationDate;
-  }
-
-  switch($spCreationUser){
-  case "":
-    $spCreationUserHTML="&nbsp";
-    break;
-  case "CLW":
-    $spCreationUserHTML="Cheryl<br/>Watson";
-    break;
-  default:
-    $spCreationUserHTML=$spCreationUser;
-  }
-
-  echo "<p>Created: &nbsp;&nbsp;$spCreationDateHTML by $spCreationUserHTML</p>\n";
-  
-  // Pick up modification date and user
-  $spModificationDate=substr($xpath->query("wlm:ModificationDate",$sp)->item(0)->nodeValue,0,10);
-  $spModificationUser=$xpath->query("wlm:ModificationUser",$sp)->item(0)->nodeValue;
-  
-  switch($spModificationDate){
-  case "":
-    $spModificationDateHTML="";
-    break;
-  default:
-    if($spModificationDate==$spCreationDate){
-      $spModificationDateHTML="";
-    }else{
-      $spModificationDateHTML = $spModificationDate;
-    }
-  }
-
-  if($spModificationUser=="" | $spModificationDateHTML=="None"){
-    $spModificationUserHTML="&nbsp";
-  }else{
-  	if($spModificationUser=="CLW"){
-	    $spModificationUserHTML="Cheryl<br/>Watson";
-  	}else{  	
-	    $spModificationUserHTML=$spModificationUser;
-  	}
-  }
-
-  if($spModificationDateHTML != ""){
-    echo "<p>Modified: $spModificationDateHTML by $spModificationUserHTML</p>\n";
-  }
-  
-
-  // Service Class Overrides
-  $scOvers=$xpath->query('wlm:ServiceClassOverrides/wlm:ServiceClassOverride',$sp);
-  $rgOvers=$xpath->query('wlm:ResourceGroupOverrides/wlm:ResourceGroupOverride',$sp);
-  $oversName="";
-  $oversType="";
-  $oversMin="";
-  $oversMax="";
-
-  if($scOvers->length>0){
-      echo "<a href='#top'><h4>Service Class Overrides</h4></a>\n";
-    echo "<table class=scrollable border='1'>\n";
-    echo "<thead>\n";
-    echo "<tr>\n";
-    echo "<th>Name</th>\n";
-    echo "<th>Period</th>\n";
-    echo "<th>Duration</th>\n";
-    echo "<th>Importance</th>\n";
-    echo "<th>Goal Type</th>\n";
-    echo "<th>Value</th>\n";
-    echo "<th>Resource<br/>Group<br/>Override</th>\n";
-    echo "</tr>\n";
-    echo "</thead>\n";
-
-    echo "<tbody>\n";
-  }
-
-  foreach($scOvers as $scOver){
-    $scGoalTypes="";
-    $scImportances="";
-    $scDurations="";
-    $scValues="";
-    $scPeriods = "";
-    
-    $scOverName=$xpath->query("wlm:ServiceClassName",$scOver)->item(0)->nodeValue;
-    $oversName.=href('SC',$scOverName)."<br/>";
-    echo cell(href("SC", $scOverName))."\n";
-
-    // Using children of Goal node as different types with own node names   
-    $scGoals=$xpath->query('wlm:Goal/*',$scOver);
-
-    // Add blank rows for Service Class Name
-    $oversName.=str_repeat("&nbsp;<br/>",$scGoals->length);
-    $scPeriod = 0;
-    foreach($scGoals as $goal){
-      $scPeriod++;
-      $scPeriods.="$scPeriod<br/>";
-      
-      // Duration
-      $NDL=$xpath->query('wlm:Duration',$goal);
-      if($NDL->length>0){
-        $scDuration=$NDL->item(0)->nodeValue;
-      }else{
-        $scDuration="";
-      }
-
-      if($scDuration=="") $scDuration="&nbsp;"; 
-      $scDurations.="$scDuration<br/>";
-
-      // Importance
-      $node = $xpath->query('wlm:Importance',$goal)->item(0);
-      if($node != null){
-        $scImportance = $node->nodeValue;
-      }else{
-        $scImportance = "";
-      }
-      
-      $scImportances.="$scImportance<br/>";
-      
-      // Goal type and value
-      $scGoalType=$goal->nodeName;
-      switch($scGoalType){
-      case "AverageResponseTime":
-        $scGoalType="Average";
-        $scResponseTime=$xpath->query('wlm:ResponseTime',$goal)->item(0)->nodeValue;
-    		$rtHour=floatval(substr($scResponseTime,0,2));
-     		$rtMin=floatval(substr($scResponseTime,3,2));
-     		$rtSec=floatval(substr($scResponseTime,6));
-     		
-        $scResponseTimeHTML="";
-        if($rtHour!=0){
-        	$scResponseTimeHTML=$scResponseTimeHTML.$rtHour."h ";
-        }
-        
-        if($rtMin!=0){
-        	$scResponseTimeHTML=$scResponseTimeHTML.$rtMin."m ";
-        }
-        
-        if($rtSec!=0){
-        	$scResponseTimeHTML=$scResponseTimeHTML.$rtSec."s ";
-        }
-        $scValues.="$scResponseTimeHTML<br/>";       
-        break;
-      case "PercentileResponseTime":
-        $scGoalType="Percentile";
-        $scPercentile=$xpath->query('wlm:Percentile',$goal)->item(0)->nodeValue;
-
-        $scResponseTime=$xpath->query('wlm:ResponseTime',$goal)->item(0)->nodeValue;
-    		$rtHour=floatval(substr($scResponseTime,0,2));
-     		$rtMin=floatval(substr($scResponseTime,3,2));
-     		$rtSec=floatval(substr($scResponseTime,6));
-
-        $scResponseTimeHTML="";
-        if($rtHour!=0){
-        	$scResponseTimeHTML=$scResponseTimeHTML.$rtHour."h ";
-        }
-        
-        if($rtMin!=0){
-        	$scResponseTimeHTML=$scResponseTimeHTML.$rtMin."m ";
-        }
-        
-        if($rtSec!=0){
-        	$scResponseTimeHTML=$scResponseTimeHTML.$rtSec."s ";
-        }
-        
-        $scValues.="$scPercentile% in $scResponseTimeHTML<br/>";       
-        break;
-      case "Velocity":
-        $scLevel=$xpath->query('wlm:Level',$goal)->item(0)->nodeValue;
-        $scValues.="$scLevel<br/>";
-         
-        break;
-      case "Discretionary":
-        $scValues.="&nbsp;<br/>";
-        break;
-      default:
-        $scValues.="?$scGoalType?<br/>";
-      }
-      $scGoalTypes.="$scGoalType<br/>";
-
-    }
-    
-    echo cell($scPeriods, "right")."\n";
-	echo cell($scDurations, "right")."\n";
-	echo cell($scImportances, "right")."\n";
-	echo cell($scGoalTypes)."\n";
-	echo cell($scValues, "right")."\n";
-
-    // Put a blank line under each Service Class;
-    $scDurations.="&nbsp;<br/>";
-    $scImportances.="&nbsp;<br/>";
-    $scGoalTypes.="&nbsp;<br/>";
-    $scValues.="&nbsp;<br/>";
-    
-    // Resource group override for this Service class
-    $scrgNodes=$xpath->query('wlm:ResourceGroupName',$scOver);
-    if($scrgNodes->length > 0){
-       echo cell(href("RG", $scrgNodes[0]->nodeValue))."\n";	
-    }
-    echo "</tr>\n";
-  }
-   
-  if($scOvers->length>0){
-    echo "</tbody>\n";
-    echo "</table>\n";
-  }
-  
-  // Resource Group Overrides
-  $rgOvers=$xpath->query('wlm:ResourceGroupOverrides/wlm:ResourceGroupOverride',$sp);
-
-  if($rgOvers->length>0){
-    echo "<a href='#top'><h4>Resource Group Overrides</h4></a>\n";
-
-    echo "<table class=scrollable border='1'>\n";
-    echo "<thead>\n";
-    echo "<tr>\n";
-    echo "<th>Name</th>\n";
-    echo "<th>Type</th>\n";
-    echo "<th>Minimum</th>\n";
-    echo "<th>Maximum</th>\n";
-    echo "</tr>\n";
-    echo "</thead>\n";
-
-    echo "<tbody>\n";
-  }
-
-  foreach($rgOvers as $rgOver){
-    echo "<tr>\n";
-    $rgOverName=$xpath->query("wlm:ResourceGroupName",$rgOver)->item(0)->nodeValue;
-    $oversName ="<a href='#RG_$rgOverName'>$rgOverName</a><br/>";
-    echo cell("<a href='#RG_$rgOverName'>$rgOverName</a>")."\n";
-
-    $rgOverType=$xpath->query("wlm:Type",$rgOver)->item(0)->nodeValue;
-    switch ($rgOverType) {
-    case 'PercentageLPARShare':
-      $oversType="Percentage LPAR Share";
-      break;
-    case 'CPUServiceUnits':
-      $oversType="CPU Service Units";
-      break;
-    case 'NumberCPsTimes100':
-	  $oversType="Percentage Of A CP";
-	  break;
-    default:
-      $oversType.="$rgOverType";
-      break;
-    }
-
-    echo cell($oversType)."\n";
-    $node = $xpath->query("wlm:CapacityMinimum",$rgOver)->item(0);
-    if($node != null){
-      $rgOverCapMin = $node->nodeValue;
-      
-      if($rgOverCapMin == 0) $rgOverCapMin = "&nbsp;";
-    }else{
-      $rgOverCapMin= "";
-    }
-    
-    echo cell($rgOverCapMin,'right')."\n";
-
-
-    $node = $xpath->query("wlm:CapacityMaximum",$rgOver)->item(0);
-    if($node != null){
-      $rgOverCapMax = $node->nodeValue;
-
-      if($rgOverCapMax == 0) $rgOverCapMax = "&nbsp;";
-    }else{
-      $rgOverCapMax= "";
-    }
-    
-
-    echo cell($rgOverCapMax,'right')."\n";
-    
-    echo "</tr>\n";
-  }
-
-  if($rgOvers->length > 0){
-    echo "</tbody>\n";
-    echo "</table>\n";
-  }  
-}
 
 
 // List workloads
@@ -2178,6 +1971,7 @@ if($cpuCritsYes->length==0){
 }else{
   $CPUCriticalCols=1;
 }
+
 
 // Check if Resource Groups specified
 if($resGrps->length==0){
@@ -2281,7 +2075,7 @@ foreach($workloads as $wl){
     }
   }
 
-  if($wlModificationUser=="" | $wlModificationDateHTML=="None"){
+  if(($wlModificationUser=="") || ($wlModificationDateHTML=="None")){
     $wlModificationUserHTML="&nbsp";
   }else{
   	if($wlModificationUser=="CLW"){
@@ -2319,26 +2113,42 @@ foreach($workloads as $wl){
   foreach($serviceClasses as $sc){
     $scName=$xpath->query('wlm:Name',$sc)->item(0)->nodeValue;
 
-    $scDesc=$xpath->query('wlm:Description',$sc)->item(0)->nodeValue;
+    
+    $scDescNodes=$xpath->query('wlm:Description',$sc);
+    if($scDescNodes->length>0){
+      $scDesc = $scDescNodes->item(0)->nodeValue;
+    }else{
+      $scDesc = "";
+    }
+    
+    if($CPUCriticalCols > 0){
+      $scCPUCritical = $xpath->query('wlm:CPUCritical',$sc)->item(0)->nodeValue;
 
-    if($CPUCriticalCols>0){
-      $scCPUCritical=$xpath->query('wlm:CPUCritical',$sc)->item(0)->nodeValue;
-      if(($scCPUCritical=="No")|($scCPUCritical=="")) $scCPUCritical="&nbsp";
+      if(($scCPUCritical == "No")|| ($scCPUCritical == "")) $scCPUCritical = "&nbsp;";
+    } else {
+      $scCPUCritical = "&nbsp;";
     }
 
-    if($resGrpsCols>0){      
+    $baseCPUCritical[$scName] = $scCPUCritical;
+
+    if($resGrpsCols > 0){      
       $NDL=$xpath->query('wlm:ResourceGroupName',$sc);
       if($NDL->length>0){
-        $scRGName=$NDL->item(0)->nodeValue;
+        $scRGName = $NDL->item(0)->nodeValue;
       }else{
-        $scRGName="";
+        $scRGName = "";
       }
-      if($scRGName==""){
-        $scRGNameHTML="&nbsp";
+      if($scRGName == ""){
+        $scRGNameHTML = "&nbsp";
       }else{
-        $scRGNameHTML=href('RG',$scRGName);
+        $scRGNameHTML = href('RG', $scRGName);
       }
+
+      $baseResourceGroup[$scName] = $scRGName;
+    } else {
+      $baseResourceGroup[$scName] = "";
     }
+
 
     
     // Using children of Goal node as different types with own node names   
@@ -2348,8 +2158,10 @@ foreach($workloads as $wl){
     $scImportances="";
     $scDurations="";
     $scValues="";
+    $scPeriod = 0;
     foreach($scGoals as $goal){
       
+      $scPeriod++;
       // Importance
       $NDL=$xpath->query('wlm:Importance',$goal);
       if($NDL->length>0){
@@ -2357,29 +2169,37 @@ foreach($workloads as $wl){
       }else{
         $scImportance="";
       }
+      
+      $baseImportance[$scName][$scPeriod] = $scImportance;
 
       $scImportances.="$scImportance<br/>";
 
       // Duration
-      $NDL=$xpath->query('wlm:Duration',$goal);
-      if($NDL->length>0){
-        $scDuration=$NDL->item(0)->nodeValue;
-      }else{
-        $scDuration="";
+      $NDL = $xpath->query('wlm:Duration', $goal);
+      if($NDL->length > 0) {
+        $scDuration = $NDL->item(0)->nodeValue;
+      } else {
+        $scDuration = "";
       }
+      
+      $baseDuration[$scName][$scPeriod] = $scDuration;
 
       if($scDuration=="") $scDuration="&nbsp;"; 
       $scDurations.="$scDuration<br/>";
 
       // Goal type and value
       $scGoalType=$goal->nodeName;
+      
+      $baseGoalType[$scName][$scPeriod] = $scGoalType;
+
       switch($scGoalType){
       case "AverageResponseTime":
         $scGoalType="Average";
         $scResponseTime=$xpath->query('wlm:ResponseTime',$goal)->item(0)->nodeValue;
-    		$rtHour=floatval(substr($scResponseTime,0,2));
-     		$rtMin=floatval(substr($scResponseTime,3,2));
-     		$rtSec=floatval(substr($scResponseTime,6));
+    	$rtHour=floatval(substr($scResponseTime,0,2));
+     	$rtMin=floatval(substr($scResponseTime,3,2));
+     	$rtSec=floatval(substr($scResponseTime,6));
+     	$baseRTGoal[$scName][$scPeriod] = "Average " . $scResponseTime;
 
         $scResponseTimeHTML="";
         if($rtHour!=0){
@@ -2396,13 +2216,14 @@ foreach($workloads as $wl){
         $scValues.="$scResponseTimeHTML<br/>";
         break;
       case "PercentileResponseTime":
-        $scGoalType="Percentile";
-        $scPercentile=$xpath->query('wlm:Percentile',$goal)->item(0)->nodeValue;
+        $scGoalType = "Percentile";
+        $scPercentile = $xpath->query('wlm:Percentile', $goal)->item(0)->nodeValue;
 
-        $scResponseTime=$xpath->query('wlm:ResponseTime',$goal)->item(0)->nodeValue;
-    		$rtHour=floatval(substr($scResponseTime,0,2));
-     		$rtMin=floatval(substr($scResponseTime,3,2));
-     		$rtSec=floatval(substr($scResponseTime,6));
+        $scResponseTime = $xpath->query('wlm:ResponseTime', $goal)->item(0)->nodeValue;
+    	$rtHour = floatval(substr($scResponseTime, 0, 2));
+     	$rtMin = floatval(substr($scResponseTime, 3, 2));
+     	$rtSec = floatval(substr($scResponseTime, 6));
+     	$baseRTGoal[$scName][$scPeriod] = "Percentile " . $scPercentile . " " . $scResponseTime;
 
         $scResponseTimeHTML="";
         if($rtHour!=0){
@@ -2419,20 +2240,30 @@ foreach($workloads as $wl){
         
         $scValues.="$scPercentile% in $scResponseTimeHTML<br/>";       
         break;
+
       case "Velocity":
         $scLevel=$xpath->query('wlm:Level',$goal)->item(0)->nodeValue;
         $scValues.="$scLevel<br/>";
-         
+        
+        $baseVelocity[$scName][$scPeriod] = $scLevel;
+        $baseRTGoal[$scName][$scPeriod] = "Velocity " . $scLevel;
+
         break;
+
       case "Discretionary":
         $scValues.="&nbsp;<br/>";
+        $baseRTGoal[$scName][$scPeriod] = "Discretionary";
         break;
+
       default:
         $scValues.="?$scGoalType?<br/>";
+        $baseRTGoal[$scName][$scPeriod] = "Other";
       }
+
       $scGoalTypes.="$scGoalType<br/>";
     }
 
+    
     // Maybe I/O Priority Group
     if($IOPriorityGroupsEnabled=='Yes'){
        $scIOPriorityGroup=$xpath->query("wlm:IOPriorityGroup",$sc)->item(0)->nodeValue;
@@ -2480,7 +2311,7 @@ foreach($workloads as $wl){
       }
     }
 
-    if($scModificationUser=="" | $scModificationDateHTML=="None"){
+    if(($scModificationUser=="") || ($scModificationDateHTML=="None")){
       $scModificationUserHTML="&nbsp";
     }else{
     	if($scModificationUser=="CLW"){
@@ -2644,7 +2475,7 @@ foreach($rcs as $rc){
       }
     }
 
-    if($rcModificationUser=="" | $rcModificationDateHTML=="None"){
+    if(($rcModificationUser=="") || ($rcModificationDateHTML=="None")){
       $rcModificationUserHTML="&nbsp";
     }else{
     	if($rcModificationUser=="CLW"){
@@ -2673,6 +2504,651 @@ foreach($rcs as $rc){
 
 echo "</tbody>\n";
 echo "</table>\n";
+// List service policies
+echo "<a href='#top'><h2 id='srvPols'>Service Policies</h2></a>\n";
+
+echo "<table class=scrollable border='1'>\n";
+echo "<thead>\n";
+echo "<tr>\n";
+echo "<th style='min-width: 100px; max-width: 100px;'>Service Policy</th>\n";
+echo "<th style='min-width: 300px; max-width: 300px;'>Description</th>\n";
+echo "</tr>\n";
+echo "</thead>\n";
+
+foreach($srvPols as $sp){
+  $spName=$xpath->query("wlm:Name",$sp)->item(0)->nodeValue;
+  
+  // Pick up description
+  $spDesc=$xpath->query("wlm:Description",$sp)->item(0)->nodeValue;
+  
+  if($spDesc==""){
+    $spDesc="&nbsp";
+  }
+
+  echo "<tr>\n";
+  echo "<td style='min-width: 100px; max-width: 100px;'><a href='#SP_$spName'>$spName</a></td>\n";
+  echo "<td style='min-width: 300px; max-width: 300px;'>$spDesc</td>\n";
+  echo "</tr>\n";
+}
+
+echo "</table>\n";
+
+foreach($srvPols as $sp){
+  $spName=$xpath->query("wlm:Name",$sp)->item(0)->nodeValue;
+  
+  // Pick up description
+  $spDesc=$xpath->query("wlm:Description",$sp)->item(0)->nodeValue;
+
+  echo "<tr>\n";
+  
+  if($spDesc==""){
+    $spDesc="&nbsp";
+  }else{
+    $spDesc=" - " . $spDesc;
+  }
+
+  echo "<a href='#srvPols'><h3 id='SP_$spName'>$spName $spDesc</h3></a>\n";
+
+  // Pick up creation date and user
+  $spCreationDate=substr($xpath->query("wlm:CreationDate",$sp)->item(0)->nodeValue,0,10);
+  $spCreationUser=$xpath->query("wlm:CreationUser",$sp)->item(0)->nodeValue;
+
+  if($spCreationDate==""){
+    $spCreationDateHTML="&nbsp";
+  }else{
+    $spCreationDateHTML=$spCreationDate;
+  }
+
+  switch($spCreationUser){
+  case "":
+    $spCreationUserHTML="&nbsp";
+    break;
+  case "CLW":
+    $spCreationUserHTML="Cheryl<br/>Watson";
+    break;
+  default:
+    $spCreationUserHTML=$spCreationUser;
+  }
+
+  echo "<p>Created: &nbsp;&nbsp;$spCreationDateHTML by $spCreationUserHTML</p>\n";
+  
+  // Pick up modification date and user
+  $spModificationDate=substr($xpath->query("wlm:ModificationDate",$sp)->item(0)->nodeValue,0,10);
+  $spModificationUser=$xpath->query("wlm:ModificationUser",$sp)->item(0)->nodeValue;
+  
+  switch($spModificationDate){
+  case "":
+    $spModificationDateHTML="";
+    break;
+  default:
+    if($spModificationDate==$spCreationDate){
+      $spModificationDateHTML="";
+    }else{
+      $spModificationDateHTML = $spModificationDate;
+    }
+  }
+
+  if(($spModificationUser=="") || ($spModificationDateHTML=="None")){
+    $spModificationUserHTML="&nbsp";
+  }else{
+  	if($spModificationUser=="CLW"){
+	    $spModificationUserHTML="Cheryl<br/>Watson";
+  	}else{  	
+	    $spModificationUserHTML=$spModificationUser;
+  	}
+  }
+
+  if($spModificationDateHTML != ""){
+    echo "<p>Modified: $spModificationDateHTML by $spModificationUserHTML</p>\n";
+  }
+  
+  // Service Class Overrides
+  $scOvers=$xpath->query('wlm:ServiceClassOverrides/wlm:ServiceClassOverride',$sp);
+
+  if($scOvers->length>0){
+    echo "<a href='#top'><h4>Service Class Overrides</h4></a>\n";
+    echo "<table class=scrollable border='1'>\n";
+    echo "<thead>\n";
+    echo "<tr>\n";
+    echo "<th>Name</th>\n";
+    echo "<th>Period</th>\n";
+    echo "<th>Duration</th>\n";
+    echo "<th>Importance</th>\n";
+    echo "<th>Goal Type</th>\n";
+    echo "<th>Value</th>\n";
+    echo "<th>Resource<br/>Group</th>\n";
+    echo "<th>CPU Critical</th>\n";
+    echo "<th style='width: 300px; max-width: 300px'>Relative To Base Policy</th>\n";
+    echo "</tr>\n";
+    echo "</thead>\n";
+
+    echo "<tbody>\n";
+  }
+
+  foreach($scOvers as $scOver){
+    $scOverName =trim($xpath->query("wlm:ServiceClassName",$scOver)->item(0)->nodeValue);
+
+    // Using children of Goal node as different types with own node names   
+    $scGoals=$xpath->query('wlm:Goal/*',$scOver);
+
+    $scPeriod = 0;
+    foreach($scGoals as $goal){
+      $scPeriod++;
+
+      echo("<tr>\n");
+
+      if ($scPeriod == 1){
+        echo cell(href("SC", $scOverName))."\n";
+      } else {
+        echo blank_cells(1);
+      }
+
+      echo cell($scPeriod, "right")."\n";
+      
+      // Duration
+      $NDL=$xpath->query('wlm:Duration',$goal);
+      if($NDL->length>0){
+        $scDuration=$NDL->item(0)->nodeValue;
+      }else{
+        $scDuration="";
+      }
+
+      if($scDuration=="") $scDuration="&nbsp;"; 
+
+      echo cell($scDuration, "right")."\n";
+
+      // Importance
+      $node = $xpath->query('wlm:Importance',$goal)->item(0);
+      if($node != null){
+        $scImportance = $node->nodeValue;
+      }else{
+        $scImportance = "";
+      }
+
+	  echo cell($scImportance, "right")."\n";
+      
+      // Goal type and value
+      $scGoalType = $goal->nodeName;
+      switch($scGoalType){
+
+      case "AverageResponseTime":
+        $scGoalType = "Average";
+        $scResponseTime = $xpath->query('wlm:ResponseTime', $goal)->item(0)->nodeValue;
+    		$rtHour = floatval(substr($scResponseTime, 0, 2));
+     		$rtMin = floatval(substr($scResponseTime, 3, 2));
+     		$rtSec = floatval(substr($scResponseTime, 6));
+     	$scRTGoal = "Average " . $scResponseTime;
+     		
+        $scResponseTime = "";
+        if($rtHour != 0){
+        	$scResponseTime = $scResponseTime.$rtHour . "h ";
+        }
+        
+        if($rtMin != 0){
+        	$scResponseTime = $scResponseTime.$rtMin . "m ";
+        }
+        
+        if($rtSec != 0){
+        	$scResponseTime = $scResponseTime.$rtSec . "s ";
+        }
+        
+        $scValue = trim($scResponseTime);
+
+        break;
+
+      case "PercentileResponseTime":
+        $scGoalType = "Percentile";
+        $scPercentile = $xpath->query('wlm:Percentile', $goal)->item(0)->nodeValue;
+
+        $scResponseTime = $xpath->query('wlm:ResponseTime', $goal)->item(0)->nodeValue;
+    		$rtHour = floatval(substr($scResponseTime, 0, 2));
+     		$rtMin = floatval(substr($scResponseTime, 3, 2));
+     		$rtSec = floatval(substr($scResponseTime, 6));
+     	$scRTGoal = "Percentile " . $scPercentile . " " . $scResponseTime;
+
+        $scResponseTime = "";
+        if($rtHour != 0){
+        	$scResponseTime = $scResponseTime . $rtHour . "h ";
+        }
+        
+        if($rtMin != 0){
+        	$scResponseTime = $scResponseTime . $rtMin . "m ";
+        }
+        
+        if($rtSec != 0){
+        	$scResponseTime = $scResponseTime . $rtSec . "s ";
+        }
+        
+        $scValue = $scPercentile . "% in " . trim($scResponseTime);       
+
+        break;
+
+      case "Velocity":
+        $scLevel = $xpath->query('wlm:Level', $goal)->item(0)->nodeValue;
+        $scValue = $scLevel;
+
+        break;
+
+      case "Discretionary":
+        $scValue = "&nbsp;";
+
+        break;
+      default:
+        $scValue .= "?" . $scGoalType . "?";
+      }
+      
+	  echo cell($scGoalType) . "\n";
+	  echo cell($scValue, "right") . "\n";
+
+    
+    
+      // Resource group override for this Service class
+      $scrgNodes=$xpath->query('wlm:ResourceGroupName',$scOver);
+      if($scrgNodes->length > 0){
+        $scRG = $scrgNodes[0]->nodeValue;
+        echo cell(href("RG", $scrgNodes[0]->nodeValue))."\n";	
+      } else {
+        $scRG = "";
+        echo(blank_cells(1));
+      }
+    
+      // CPU Critical
+      $NDL = $xpath->query('wlm:CPUCritical', $scOver);
+      if($NDL->length > 0) {
+        $scCPUCritical = $NDL->item(0)->nodeValue;
+        if ($scCPUCritical == "") {
+          $scCPUCritical = "&nbsp;";
+        }
+      } else {
+        $scCPUCritical = "&nbsp;";
+      }
+
+	  echo cell($scCPUCritical) . "\n";
+    
+      // Comment on the override function
+      $overrideText = "";
+      $comparable = true;
+      
+      if(!array_key_exists($scOverName , $baseRTGoal)) {
+        $overrideText .= "Service class added";
+        $comparable = false;
+      } else {
+        if(!array_key_exists($scPeriod, $baseRTGoal[$scOverName])){
+          $overrideText .= "Period added";
+          $comparable = false;
+        }
+        
+      }
+
+      if($comparable){
+        // Can meaningfully put out comparison
+		// Goal Type
+		$baseGoalT = $baseGoalType[$scOverName][$scPeriod];
+			
+		if($baseGoalT == "PercentileResponseTime") $baseGoalT = "Percentile";
+		
+		if ($baseGoalT != $scGoalType) {
+		  $overrideText .= "Goal type changed from " . $baseGoalT . " to " . $scGoalType;
+		}
+	
+		// Importance
+		$baseImp = $baseImportance[$scOverName][$scPeriod];
+		if(($scImportance == "") && ($baseImp != "")) {
+    	  if($overrideText != ""){
+			// Not the first change so force a line break
+			$overrideText .= "<br/><br/>";
+		  }
+	
+		  $overrideText .= "Importance changed from " . $baseImp . " to Discretionary";
+		}
+		elseif (($scImportance != "") && ($baseImp == "")){
+    	  if($overrideText != ""){
+			// Not the first change so force a line break
+			$overrideText .= "<br/><br/>";
+		  }
+	
+		  $overrideText .= "Importance changed from Discretionary to " . $scImportance;
+		}
+		elseif ($baseImp > $scImportance) {
+    	  if($overrideText != ""){
+			// Not the first change so force a line break
+			$overrideText .= "<br/><br/>";
+		  }
+	
+		  $overrideText .= "Importance increased from " . $baseImp . " to " . $scImportance;
+		}
+		elseif ($baseImp < $scImportance){
+		  if($overrideText != ""){
+			// Not the first change so force a line break
+			$overrideText .= "<br/><br/>";
+		  }
+	
+		  $overrideText .= "Importance decreased from " . $baseImp . " to " . $scImportance;
+		}
+			
+		if($scGoalType == "Velocity") {
+	
+	      if(array_key_exists($scOverName, $baseVelocity)){
+	        // Service class already had a velocity goal
+  		    if(array_key_exists($scPeriod , $baseVelocity[$scOverName])) {
+		      // Already was velocity
+		      $baseVel = $baseVelocity[$scOverName][$scPeriod];
+		      if ($baseVel > $scLevel) {
+		        if($overrideText != ""){
+			      // Not the first change so force a line break
+			      $overrideText .= "<br/><br/>";
+    			}
+	
+			    $overrideText .= "Velocity decreased from ". $baseVel . " to " . $scLevel;
+		      }
+		      elseif($baseVel < $scLevel) {
+		        if($overrideText != ""){
+			      // Not the first change so force a line break
+    			  $overrideText .= "<br/><br/>";
+    			}
+	
+			    $overrideText .= "Velocity increased from ". $baseVel . " to " . $scLevel;
+		      }
+	        } else {
+	          echo "Base key doesn't exist: " . $scOverName . "\n";
+	        }
+		  }
+	    }
+	
+	    if($scCPUCritical != "&nbsp;") {
+		  $baseCPUCrit = $baseCPUCritical[$scOverName];
+
+		  // Get the base CPU critical value
+		  if(($baseCPUCrit == "&nbsp;") || ($baseCPUCrit == " ")) {
+		    $baseCPUCrit = "No";
+		  }
+	
+    	  if($scCPUCritical != $baseCPUCrit){
+		    if($overrideText != ""){
+			  // Not the first change so force a line break
+			  $overrideText .= "<br/><br/>";
+		    }
+				
+		    $overrideText .= "CPU Critical changed from " . $baseCPUCrit . " to " . $scCPUCritical;
+		  }
+	    }
+	
+	    // Resource group		
+	    $baseRG = $baseResourceGroup[$scOverName];
+			
+	    if($baseRG != $scRG){
+		  if($overrideText != "") {
+		    // Not the first change so force a line break
+		    $overrideText .= "<br/><br/>";
+		  }
+			
+		  if($scRG == ""){
+		    $overrideText .= "Resource group " . $baseRG . " removed";
+		  }
+		  elseif($baseRG == "") {
+		    $overrideText .= "Resource group " . $scRG . " added";
+		  } else {
+		    $overrideText .= "Resource group changed from " . $baseRG . " to " . $scRG;
+		  }
+	    }
+
+        // Duration
+	    $baseDur = $baseDuration[$scOverName][$scPeriod];
+	    if($baseDur == "") $baseDur = "&nbsp;";
+			
+	    if($baseDur != $scDuration){
+		  if($overrideText != "") {
+		    // Not the first change so force a line break
+		    $overrideText .= "<br/><br/>";
+		  }
+			
+		  if($scDuration == "&nbsp;") {
+		    $overrideText .= "Duration removed";
+		  } elseif ($baseDur == "&nbsp;") {
+		    $overrideText .= "Duration added";
+		  } elseif ($scDuration > $baseDur) {
+		    $overrideText .= "Duration increased from " . $baseDur . " to " . $scDuration;
+		  } else {
+		    $overrideText .= "Duration decreased from " . $baseDur . " to " . $scDuration;
+		  }
+	    }
+	
+	    // Goal value			 
+	    if(($scGoalType == "Average") || ($scGoalType == "Percentile")){
+		  $baseRT = $baseRTGoal[$scOverName][$scPeriod];
+		  $baseRTArray = explode(" ", $baseRT);
+			
+		  if(($baseGoalT == $scGoalType) && ($baseRT != "$scRTGoal")){
+		    if($overrideText != "") {
+			  // Not the first change so force a line break
+			  $overrideText .= "<br/><br/>";
+		    }
+	
+		    if($baseGoalT == "Percentile") {
+			  $baseRTPercent = $baseRTArray[1];
+			  $baseRTRT = $baseRTArray[2];
+				
+			  $rtHour = floatval(substr($baseRTRT, 0, 2));
+			  $rtMin = floatval(substr($baseRTRT, 3, 2));
+			  $rtSec = floatval(substr($baseRTRT, 6));
+				
+			  $baseTime = "";
+			  if($rtHour != 0){
+			    $baseTime = $baseTime.$rtHour . "h ";
+			  }
+			
+			  if($rtMin != 0){
+			    $baseTime = $baseTime.$rtMin . "m ";
+			  }
+			
+			  if($rtSec != 0){
+			    $baseTIme = $baseTime.$rtSec . "s ";
+			  }
+			
+			  $baseTime = trim($baseTime);
+	
+	
+			  $overrideText .= "Goal changed from " . $baseRTPercent . "&percnt; in " . $baseTime;
+			  $overrideText .= "to " . $scValue;
+		    } else {
+			  $baseRTRT = $baseRTArray[1];
+				
+			  $rtHour = floatval(substr($baseRTRT, 0, 2));
+			  $rtMin = floatval(substr($baseRTRT, 3, 2));
+			  $rtSec = floatval(substr($baseRTRT, 6));
+				
+			  $baseTime = "";
+			  if($rtHour != 0){
+			    $baseTime = $baseTime.$rtHour . "h ";
+			  }
+			
+			  if($rtMin != 0){
+			    $baseTime = $baseTime.$rtMin . "m ";
+			  }
+			
+			  if($rtSec != 0){
+			    $baseTIme = $baseTime.$rtSec . "s ";
+			  }
+			
+			  $baseTime = trim($baseTime);
+	
+			  $overrideText .= "Goal changed from " . $baseTime;
+			  $overrideText .= "to " . $$scValue;
+		    }
+  		  }
+	    }
+			
+	    if($overrideText == ""){
+	  	  $overrideText = "No changes";
+	    }
+      }
+  
+      if($overrideText == "") {
+        echo(blank_cells(1));
+      } else {
+        echo(cell($overrideText, 'left',300));
+      }
+
+      echo "</tr>\n";
+    }
+  }
+   
+  if($scOvers->length>0){
+    echo "</tbody>\n";
+    echo "</table>\n";
+  }
+  
+  // Resource Group Overrides
+  $rgOvers=$xpath->query('wlm:ResourceGroupOverrides/wlm:ResourceGroupOverride',$sp);
+
+  if($rgOvers->length>0){
+    echo "<a href='#top'><h4>Resource Group Overrides</h4></a>\n";
+
+    echo "<table class=scrollable border='1'>\n";
+    echo "<thead>\n";
+    echo "<tr>\n";
+    echo "<th>Name</th>\n";
+    echo "<th>Type</th>\n";
+    echo "<th>Minimum</th>\n";
+    echo "<th>Maximum</th>\n";
+    echo "<th style='width: 400px; max-width: 400px'>Relative To Base Policy</th>\n";
+    echo "</tr>\n";
+    echo "</thead>\n";
+
+    echo "<tbody>\n";
+  }
+
+  foreach($rgOvers as $rgOver){
+    echo "<tr>\n";
+    $rgOverName = $xpath->query("wlm:ResourceGroupName", $rgOver)->item(0)->nodeValue;
+    $oversName = "<a href='#RG_$rgOverName'>$rgOverName</a><br/>";
+    echo cell("<a href='#RG_$rgOverName'>$rgOverName</a>")."\n";
+
+    $node = $xpath->query("wlm:Type",$rgOver)->item(0);
+    if($node != null) {
+      $rgOverType = $node->nodeValue;
+    } else {
+      $rgOverType = "";
+    }
+    
+    switch ($rgOverType) {
+    case 'PercentageLPARShare':
+      $oversType = "Percentage LPAR Share";
+      break;
+    case 'CPUServiceUnits':
+      $oversType = "CPU Service Units";
+      break;
+    case 'NumberCPsTimes100':
+	  $oversType = "Percentage Of A CP";
+	  break;
+    default:
+      $oversType = "$rgOverType";
+      break;
+    }
+
+    echo cell($oversType)."\n";
+    $node = $xpath->query("wlm:CapacityMinimum", $rgOver)->item(0);
+    if($node != null){
+      $rgOverCapMin = $node->nodeValue;
+      
+      //if($rgOverCapMin == 0) $rgOverCapMin = "&nbsp;";
+    }else{
+      $rgOverCapMin = "Not set";
+    }
+    
+    echo cell($rgOverCapMin,'right')."\n";
+
+
+    $node = $xpath->query("wlm:CapacityMaximum", $rgOver)->item(0);
+    if($node != null){
+      $rgOverCapMax = $node->nodeValue;
+
+      //if($rgOverCapMax == 0) $rgOverCapMax = "&nbsp;";
+    }else{
+      $rgOverCapMax = "Not set";
+    }
+    
+
+    echo cell($rgOverCapMax,'right')."\n";
+    
+    
+    // Compare to base
+    $overrideText = "";
+    $baseType = $baseRGType[$rgOverName];
+    if($rgOverType != $baseType) {
+    switch ($baseType) {
+    case 'PercentageLPARShare':
+      $baseTypeHTML = "Percentage LPAR Share";
+      break;
+    case 'CPUServiceUnits':
+      $baseTypeHTML = "CPU Service Units";
+      break;
+    case 'NumberCPsTimes100':
+	  $baseTypeHTML = "Percentage Of A CP";
+	  break;
+    default:
+      $baseTypeHTML = "$baseType";
+      break;
+    }
+
+      $overrideText .= "Type changed from " . $baseTypeHTML;
+    } else {
+      $baseRGMax = $baseRGMaximum[$rgOverName];
+      if ($baseRGMax != $rgOverCapMax){
+		if($overrideText != "") {
+		  // Not the first change so force a line break
+		  $overrideText .= "<br/><br/>";
+		}
+      
+        if(($baseRGMax == "Not set") || ($rgOverCapMax == "Not set")) {
+          if($rgOverCapMax == "Not set"){
+            $overrideText .= "Maximum (" . $baseRGMax . ") removed";
+          } else {
+            $overrideText .= "Maximum added";
+          }
+        } else {
+          if ($baseRGMax > $rgOverCapMax) {
+            $overrideText .= "Maximum reduced from " . $baseRGMax;
+          } else {
+            $overrideText .= "Maximum increased from " . $baseRGMax;
+          }
+        }        
+      }
+
+      $baseRGMin = $baseRGMinimum[$rgOverName];
+      if ($baseRGMin != $rgOverCapMin){
+		if($overrideText != "") {
+		  // Not the first change so force a line break
+		  $overrideText .= "<br/><br/>";
+		}
+      
+        if(($baseRGMin == "Not set") || ($rgOverCapMin == "Not set")) {
+          if($rgOverCapMin == "Not set"){
+            $overrideText .= "Minimum (" . $baseRGMin . ") removed";
+          } else {
+            $overrideText .= "Miniimum added";
+          }
+        } else {
+          if ($baseRGMin > $rgOverCapMin) {
+            $overrideText .= "Minimum reduced from " . $baseRGMin;
+          } else {
+            $overrideText .= "Minimum increased from " . $baseRGMin;
+          }
+        }
+      }
+    }
+        
+    echo cell($overrideText, 'left', 400) . "\n";
+    
+    echo "</tr>\n";
+  }
+
+  if($rgOvers->length > 0){
+    echo "</tbody>\n";
+    echo "</table>\n";
+  }  
+}
+
 
 // List application environments
 echo "<a href='#top'><h2 id='applEnvs'>Application Environments</h2></a>\n";
