@@ -135,6 +135,7 @@
 // 09/12/24 MGLP Override going from Discretionary to Velocity caused error. Fixed
 // 08/05/25 MGLP More fixes to missing nodes
 // 06/08/25 MGLP Handle RP Boost classification rules
+// 06/08/25 MGLP Trim off line number prefix/suffix words in notes and make it scroll
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -1131,13 +1132,61 @@ echo "</table>\n";
 echo "<a href='#top'><h2 id='notes'>Notes</h2></a>\n";
 
 $sdNotes=$xpath->query('/wlm:ServiceDefinition/wlm:Notes/wlm:Note');
-if($sdNotes->length > 0){
+$sdNotesLineCount = $sdNotes->length;
+
+if($sdNotesLineCount > 0){
   // Have notes
+
+
+  // Pre-process notes, looking for length and line numbers
+  $firstWordIsLineNumber = 0;
+  $lastWordIsLineNumber = 0;
+
+  foreach($sdNotes as $note){
+    $noteText = $note->nodeValue;
+    $noteTextWords = explode(" ", $noteText);
+    
+    // Check if first word is numeric
+    if(is_numeric($noteTextWords[0])){
+      $firstWordIsLineNumber++;
+    }
+
+    // Check if last word is numeric
+    if(is_numeric(end($noteTextWords))){
+      $lastWordIsLineNumber++;
+    }
+  }
+
+  $lineNumberPrefixes = ($firstWordIsLineNumber == $sdNotesLineCount);
+  $lineNumberSuffixes = ($lastWordIsLineNumber == $sdNotesLineCount);
+  
+  // Create textarea with edited contents
   $noteHTML = "<br/><textarea cols=80 rows=30 readonly  style=\"resize: none;\">\n";
   foreach($sdNotes as $note){
     $noteText = $note->nodeValue;
+    
+    // Handle any line number prefix or suffix
+    $wordCount = count(explode(" ", $noteText));
+    
+    if($wordCount == 1){
+      // Line number was the only text
+      $noteText = "";
+    }
+
+    elseif(($lineNumberPrefixes) && ($wordCount > 0)){
+      // There is a prefix to trim off
+      $firstSpace = strpos($noteText, " ");
+      $noteText = substr( $noteText, $firstSpace + 1);
+    }
+    
+    elseif(($lineNumberSuffixes) && ($wordCount > 0)){
+      // There is a suffix to trim off
+      $lastSpace = strrpos($noteText, " ");
+      $noteText = substr( $noteText, 0, $lastSpace);
+    }
+        
     if(!ctype_digit(trim($noteText))){
-      // Is not a line number but real text
+      // Is not just a line number but real text
       $noteText = str_replace("<", "&lt;", $noteText);
       $noteText = str_replace(">", "&gt;", $noteText);
       $noteText = str_replace(" ", "&nbsp", $noteText);
