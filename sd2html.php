@@ -1133,7 +1133,7 @@ echo "<a href='#top'><h2 id='notes'>Notes</h2></a>\n";
 $sdNotes=$xpath->query('/wlm:ServiceDefinition/wlm:Notes/wlm:Note');
 if($sdNotes->length > 0){
   // Have notes
-  $noteHTML = "<br/><textarea cols=80 rows=30 readonly>\n";
+  $noteHTML = "<br/><textarea cols=80 rows=30 readonly  style=\"resize: none;\">\n";
   foreach($sdNotes as $note){
     $noteText = $note->nodeValue;
     if(!ctype_digit(trim($noteText))){
