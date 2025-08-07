@@ -135,7 +135,9 @@
 // 09/12/24 MGLP Override going from Discretionary to Velocity caused error. Fixed
 // 08/05/25 MGLP More fixes to missing nodes
 // 06/08/25 MGLP Handle RP Boost classification rules
-// 06/08/25 MGLP Trim off line number prefix/suffix words in notes and make it scroll
+//               Trim off line number prefix/suffix words in notes and make it scroll
+// 06/09/25 MGLP Cope with XML broken with newlines
+//               Translate "HLV" subsystem type to "IDAA Loader"
 
 $backgroundColourPalette = ['#FFFFFF','#CCFFCC','#FFDDDD','#CCCCFF','#CCCCCC','#CCFFFF','#F0FFF0','#ADD8E6','red','green','blue','AntiqueWhite','BlueViolet','Aquamarine','DarkSeaGreen','IndianRed'];
 $lBackgroundColours = count($backgroundColourPalette);
@@ -739,6 +741,16 @@ $seenSCs=array();
 // Remove newlines
 $cleanedFile = str_replace(["\n","\r",chr(0x1a)], ["", "", ""], $file);
 
+if(mb_detect_encoding($cleanedFile) == "ASCII"){
+  ini_set('mbstring.substitute_character', "none");
+
+  $cleanedFile = mb_convert_encoding($cleanedFile, 'UTF-8', 'UTF-8');
+  //$cleanedFile = str_replace(["*"], "lowast", $cleanedFile);
+}
+//echo $cleanedFile;
+//exit;
+
+
 // Load the cleaned up XML
 $dom = new DOMDocument;
 $dom->loadXML($cleanedFile);
@@ -874,21 +886,33 @@ $subsystemTypes = [];
 $subsystemElements = $xpath->query('//wlm:QualifierType [text()="SubsystemInstance"]');
 foreach($subsystemElements as $se){
     // Obtain the subsystem name node - if any
-    $subsystemNameNode = $se->nextSibling->nextSibling;
+    $subsystemNameNode = $se->nextSibling;
     if($subsystemNameNode != null){
       // Get its name
+      if($subsystemNameNode->nodeName != "QualifierValue"){
+        $subsystemNameNode = $subsystemNameNode->nextSibling;
+      }
+
       $subsystemName = trim($subsystemNameNode->nodeValue);
       
       // Go up the tree to get the subsystem type
       $myClassificationElement = $subsystemNameNode->parentNode->parentNode->parentNode;
       if($myClassificationElement != null){
-        $mySubsystemType = trim($myClassificationElement->firstChild->nextSibling->nodeValue);
+        $mySubsystemTypeElement = $myClassificationElement->firstChild;
+        if($mySubsystemTypeElement->nodeName != "SubsystemType"){
+          $mySubsystemTypeElement = $mySubsystemTypeElement->nextSibling;
+        }
+        $mySubsystemType = trim($mySubsystemTypeElement->nodeValue);
       } else {
-      $mySubsystemType = "";
+        $mySubsystemType = "";
       }
     }else{
       $subsystemName = "";
       $mySubsystemType = "";
+    }
+    
+    if($mySubsystemType == "HLV"){
+      $mySubsystemType = "IDAA Loader";
     }
     
     $subsystemTypes[$subsystemName] = $mySubsystemType;
@@ -930,7 +954,7 @@ echo "<table class=scrollable border='1'>\n";
 echo "<tbody>\n";
 
 echo "<tr>\n";
-echo "<td style='min-width: 200px;max-width: 200px;''>Level</td><td>".$sdLevel."</td>\n";
+echo "<td style='min-width: 200px;max-width: 200px;''>Level</td><td  style='min-width: 200px; max-width: 200px;'>".$sdLevel."</td>\n";
 echo "</tr>\n";
 
 echo "<tr>\n";
@@ -1104,8 +1128,10 @@ if(count($systems) > 0){
 if(count($subsystems) > 0){
     $subsystemNames="";
     foreach($subsystems as $sn){
-        $subsystemNames = $subsystemNames . $sn . " (" . $subsystemTypes[$sn] . ") ";
+        $subsystemNames = $subsystemNames . $sn . " (" . $subsystemTypes[$sn] . ")<br/>";
     }
+    
+    $subsystemNames = substr($subsystemNames, 0, strlen($subsystemNames) - 5);
 
     echo "<tr>\n";
     echo "<td>Subsystem Names</td><td>" . $subsystemNames . "</td>\n";
